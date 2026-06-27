@@ -1,340 +1,997 @@
 <!DOCTYPE html>
-<html lang="nl" class="dark">
+<html lang="nl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reply Engine — AI Inbox Agent</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <title>Reply Engine — skyhan.app</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .step-pulse { animation: pulse 1.5s cubic-bezier(0.4,0,0.6,1) infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-    .step-row { transition: all 0.3s ease; }
-    .step-dot { width:10px; height:10px; border-radius:50%; background:#374151; transition:all 0.3s; }
-    .step-dot.active { background:#3b82f6; box-shadow:0 0 8px #3b82f6; }
-    .step-dot.done { background:#10b981; }
-    pre { white-space: pre-wrap; word-break: break-word; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #09090f;
+      --s1:     #0e0e18;
+      --s2:     #131320;
+      --b1:     #1c1c2e;
+      --b2:     #252538;
+      --b3:     #32324a;
+      --t0:     #ecedf7;
+      --t1:     #6c6c96;
+      --t2:     #3c3c58;
+      --t3:     #1e1e30;
+      --lime:   #b8ff47;
+      --lime-d: rgba(184,255,71,0.055);
+      --lime-b: rgba(184,255,71,0.14);
+      --indigo: #5b6ef5;
+      --serif:  'DM Serif Display', Georgia, serif;
+      --sans:   'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono:   'JetBrains Mono', 'SF Mono', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--t0);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    /* Noise texture */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      opacity: 0.028;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 300px 300px;
+    }
+
+    /* Ambient glow */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -20vh; left: 50%;
+      transform: translateX(-50%);
+      width: 90vw; height: 70vh;
+      background: radial-gradient(ellipse at 50% 0%, rgba(91,110,245,0.045) 0%, transparent 65%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .z { position: relative; z-index: 1; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 0 32px; }
+
+    /* ─── NAV ─── */
+    header {
+      border-bottom: 1px solid var(--b1);
+      position: sticky; top: 0;
+      background: rgba(9,9,15,0.86);
+      backdrop-filter: blur(20px) saturate(150%);
+      z-index: 100;
+    }
+
+    nav {
+      height: 56px;
+      display: flex; align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .nav-logo-mark {
+      width: 26px; height: 26px;
+      background: var(--lime);
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .nav-logo-mark svg {
+      width: 12px; height: 12px;
+    }
+    .nav-logo-text {
+      font-size: 13px; font-weight: 600;
+      letter-spacing: -0.015em;
+      color: var(--t0);
+    }
+    .nav-logo-text span {
+      color: var(--t2);
+      font-weight: 400;
+    }
+
+    .nav-links {
+      display: flex; gap: 32px;
+      position: absolute; left: 50%; transform: translateX(-50%);
+    }
+    .nav-links a {
+      font-family: var(--mono);
+      font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--t2); text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--t1); }
+
+    .nav-status {
+      display: flex; align-items: center; gap: 7px;
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--t2);
+      border: 1px solid var(--b1);
+      border-radius: 4px; padding: 5px 12px;
+    }
+    .nav-status .dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--lime);
+      box-shadow: 0 0 8px var(--lime);
+      animation: livepulse 3s ease-in-out infinite;
+    }
+
+    @keyframes livepulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--lime); }
+      50%       { opacity: 0.55; box-shadow: 0 0 3px var(--lime); }
+    }
+
+    /* ─── HERO ─── */
+    .hero { padding: 84px 0 72px; }
+
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--t2);
+      margin-bottom: 32px;
+    }
+    .eyebrow::before {
+      content: '';
+      display: block; width: 18px; height: 1px;
+      background: var(--lime); flex-shrink: 0;
+    }
+
+    .hero-headline {
+      font-family: var(--serif);
+      font-size: clamp(52px, 9.5vw, 112px);
+      line-height: 1.0;
+      letter-spacing: -0.025em;
+      margin-bottom: 44px;
+      color: var(--t0);
+    }
+    .hero-headline .word-italic {
+      font-style: italic;
+      color: var(--t1);
+    }
+    .hero-headline .word-accent {
+      color: var(--lime);
+      font-style: normal;
+    }
+
+    .hero-bottom {
+      display: flex; align-items: flex-end;
+      justify-content: space-between;
+      gap: 40px; flex-wrap: wrap;
+      padding-top: 36px;
+      border-top: 1px solid var(--b1);
+    }
+
+    .hero-desc {
+      font-size: 15px; line-height: 1.8;
+      color: var(--t1); max-width: 460px;
+      font-weight: 300;
+    }
+
+    .stats { display: flex; gap: 52px; }
+    .stat-val {
+      font-family: var(--serif);
+      font-size: 42px; color: var(--t0);
+      line-height: 1;
+    }
+    .stat-lbl {
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--t2); margin-top: 5px;
+    }
+
+    /* ─── DEMO GRID ─── */
+    .demo-section { margin-bottom: 0; }
+
+    .demo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--b1);
+      border: 1px solid var(--b1);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    /* ─── COMPOSER PANEL ─── */
+    .composer-panel {
+      background: var(--s1);
+      padding: 28px;
+    }
+
+    .panel-label {
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--t3); margin-bottom: 20px;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .panel-label::before {
+      content: '//';
+      color: var(--lime);
+      font-size: 9px;
+      letter-spacing: 0;
+    }
+
+    .company-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 14px;
+      background: var(--s2);
+      border: 1px solid var(--b1);
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .company-av {
+      width: 32px; height: 32px;
+      background: var(--lime);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700;
+      color: var(--bg); flex-shrink: 0;
+    }
+    .company-name { font-size: 13px; font-weight: 500; color: var(--t0); }
+    .company-sub {
+      font-family: var(--mono); font-size: 9px;
+      color: var(--t2); margin-top: 2px; letter-spacing: 0.06em;
+    }
+    .company-live {
+      margin-left: auto;
+      font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+      color: var(--lime);
+      border: 1px solid var(--lime-b);
+      padding: 3px 9px; border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .chips {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .chip {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.03em;
+      padding: 5px 12px;
+      border: 1px solid var(--b2);
+      border-radius: 4px;
+      background: transparent; color: var(--t2);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .chip:hover {
+      border-color: var(--lime);
+      color: var(--lime);
+      background: var(--lime-d);
+    }
+
+    .input-wrap {
+      border: 1px solid var(--b1);
+      border-radius: 8px; overflow: hidden;
+      background: var(--bg);
+      margin-bottom: 12px;
+      transition: border-color 0.2s;
+    }
+    .input-wrap:focus-within { border-color: var(--b3); }
+
+    #message-input {
+      width: 100%; background: transparent; border: none; outline: none;
+      color: var(--t0); font-size: 14px; line-height: 1.7;
+      resize: none; min-height: 108px;
+      padding: 14px 16px;
+      font-family: var(--sans); font-weight: 300;
+    }
+    #message-input::placeholder { color: var(--t2); }
+
+    #send-btn {
+      width: 100%;
+      font-family: var(--sans); font-size: 13px;
+      font-weight: 600; letter-spacing: 0.02em;
+      padding: 14px;
+      background: var(--lime); color: var(--bg);
+      border: none; cursor: pointer;
+      border-radius: 8px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    #send-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+    #send-btn:active:not(:disabled) { transform: translateY(0); }
+    #send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ─── PIPELINE PANEL ─── */
+    .pipeline-panel {
+      background: var(--s1);
+      display: flex; flex-direction: column;
+    }
+
+    .pipeline-header {
+      padding: 28px 28px 0;
+    }
+
+    .widget {
+      margin: 16px 28px;
+      flex: 1;
+      border: 1px solid var(--b1);
+      border-radius: 8px;
+      background: var(--bg);
+      font-family: var(--mono);
+      overflow: hidden;
+    }
+
+    .widget-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--b1);
+      background: var(--s2);
+    }
+    .widget-title {
+      font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--t1);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .widget-title .wdot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--lime);
+      box-shadow: 0 0 6px var(--lime);
+    }
+    .widget-ver { font-size: 9px; color: var(--t3); }
+
+    .widget-body {
+      padding: 14px 14px 6px;
+      min-height: 160px;
+    }
+
+    .idle-line {
+      font-size: 11px; color: var(--t3); line-height: 2.2;
+    }
+    .idle-line .ps { color: var(--lime); }
+    .idle-line .dim { color: var(--t3); }
+
+    /* ─── LOG ROWS (JS-dependent structure — do not remove classes) ─── */
+    .log-row {
+      display: grid;
+      grid-template-columns: 38px 12px 1fr auto;
+      gap: 8px; align-items: center;
+      padding: 7px 2px;
+      border-bottom: 1px solid var(--b1);
+      font-size: 10px;
+    }
+    .log-row:last-child { border-bottom: none; }
+
+    .log-ts  { color: var(--t3); font-size: 9px; font-variant-numeric: tabular-nums; }
+    .log-ic  { text-align: center; font-size: 11px; }
+    .log-lbl { color: var(--t2); font-size: 10px; letter-spacing: 0.04em; }
+    .log-val { font-size: 9px; color: var(--t3); white-space: nowrap; text-align: right; letter-spacing: 0.08em; }
+
+    .log-bar {
+      grid-column: 3 / -1;
+      height: 1px;
+      background: var(--b1);
+      margin-top: -3px; margin-bottom: 3px;
+      overflow: hidden;
+    }
+    .log-bar-fill {
+      height: 100%; width: 0;
+      background: linear-gradient(90deg, var(--lime), var(--indigo));
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .log-hint {
+      grid-column: 3 / -1;
+      font-size: 9px; color: var(--t2);
+      margin-top: -3px; margin-bottom: 4px;
+      letter-spacing: 0.06em;
+    }
+
+    /* Pending */
+    .log-row.pending .log-ic::before { content: '○'; color: var(--t3); }
+    .log-row.pending .log-lbl { color: var(--t3); }
+    .log-row.pending .log-ts  { color: var(--t3); }
+
+    /* Active */
+    .log-row.active .log-ic::before {
+      content: '◌'; color: var(--lime);
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+    .log-row.active .log-lbl { color: var(--t0); }
+    .log-row.active .log-ts  { color: var(--lime); }
+    .log-row.active + .log-bar .log-bar-fill { width: 45%; }
+
+    /* Done */
+    .log-row.done .log-ic::before { content: '●'; color: var(--lime); }
+    .log-row.done .log-lbl { color: var(--t0); }
+    .log-row.done .log-ts  { color: var(--t1); }
+    .log-row.done .log-val { color: var(--lime); }
+    .log-row.done + .log-bar .log-bar-fill { width: 100%; }
+    .log-row.done ~ .log-hint { color: var(--t1); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .widget-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 14px;
+      border-top: 1px solid var(--b1);
+      background: var(--s2);
+      font-size: 9px; color: var(--t3);
+    }
+
+    /* ─── RESPONSE (JS toggles .open) ─── */
+    .response-wrap {
+      display: none;
+      margin: 0 28px 28px;
+      border: 1px solid var(--b1);
+      border-radius: 8px; overflow: hidden;
+      background: var(--bg);
+    }
+    .response-wrap.open { display: block; }
+
+    .resp-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--b1);
+      background: var(--s2);
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .resp-head .lbl { color: var(--t2); }
+    #confidence-badge {
+      color: var(--lime);
+      border: 1px solid var(--lime-b);
+      padding: 2px 8px; border-radius: 3px;
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.08em;
+    }
+
+    .resp-body { padding: 18px 14px; }
+    #response-text {
+      font-size: 14px; line-height: 1.78;
+      color: var(--t0);
+      white-space: pre-wrap; word-break: break-word;
+      font-weight: 300;
+    }
+
+    .sources-row {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      margin-top: 14px; padding-top: 14px;
+      border-top: 1px solid var(--b1);
+    }
+    .src {
+      font-family: var(--mono); font-size: 9px;
+      color: var(--t2); border: 1px solid var(--b1);
+      padding: 2px 8px; border-radius: 3px;
+    }
+
+    /* ─── UPLOAD ─── */
+    .upload-block {
+      background: var(--s1);
+      border-top: 1px solid var(--b1);
+      border-bottom: 1px solid var(--b1);
+    }
+
+    .upload-inner {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      gap: 32px; flex-wrap: wrap;
+      padding: 40px 0;
+    }
+
+    .upload-eyebrow {
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--t2); margin-bottom: 10px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .upload-eyebrow::before {
+      content: '';
+      width: 14px; height: 1px;
+      background: var(--lime);
+    }
+
+    .upload-title {
+      font-family: var(--serif);
+      font-size: 30px; color: var(--t0);
+      line-height: 1.1; margin-bottom: 8px;
+    }
+
+    .upload-desc {
+      font-size: 13px; color: var(--t1);
+      font-weight: 300; max-width: 380px;
+    }
+
+    .upload-right {
+      display: flex; align-items: center;
+      gap: 16px; flex-shrink: 0;
+    }
+
+    #btn-upload {
+      font-family: var(--sans);
+      font-size: 13px; font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 12px 28px;
+      background: var(--lime); color: var(--bg);
+      border: none; cursor: pointer;
+      border-radius: 7px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    #btn-upload:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    #upload-status {
+      font-family: var(--mono); font-size: 10px;
+      color: var(--t2); letter-spacing: 0.06em;
+    }
+    #upload-status.ok { color: var(--lime); }
+
+    /* ─── CTA ─── */
+    .cta-block {
+      padding: 100px 0;
+    }
+
+    .cta-inner {
+      display: flex; align-items: flex-end;
+      justify-content: space-between;
+      gap: 48px; flex-wrap: wrap;
+    }
+
+    .cta-label {
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--t2); margin-bottom: 18px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .cta-label::before {
+      content: '';
+      width: 16px; height: 1px;
+      background: var(--lime);
+    }
+
+    .cta-heading {
+      font-family: var(--serif);
+      font-size: clamp(38px, 5.5vw, 66px);
+      line-height: 1.05; letter-spacing: -0.025em;
+      color: var(--t0);
+    }
+    .cta-heading em {
+      font-style: italic; color: var(--lime);
+    }
+
+    .cta-sub {
+      font-size: 14px; color: var(--t1);
+      margin-top: 18px; font-weight: 300;
+      line-height: 1.7;
+    }
+
+    .btn-cta {
+      font-family: var(--sans);
+      font-size: 14px; font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 16px 40px;
+      background: var(--lime); color: var(--bg);
+      border: none; cursor: pointer;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
+      border-radius: 8px;
+      transition: opacity 0.15s, transform 0.12s;
+    }
+    .btn-cta:hover { opacity: 0.88; transform: translateY(-2px); }
+    .btn-cta:active { transform: translateY(0); }
+
+    /* ─── FOOTER ─── */
+    .footer-wrap {
+      border-top: 1px solid var(--b1);
+      padding: 28px 0;
+    }
+    footer {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      gap: 16px; flex-wrap: wrap;
+    }
+    .ft-left {
+      font-family: var(--mono); font-size: 9px;
+      color: var(--t2); letter-spacing: 0.1em;
+    }
+    .ft-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .ft-tag {
+      font-family: var(--mono); font-size: 9px;
+      color: var(--t3);
+      border: 1px solid var(--b1);
+      padding: 3px 8px; border-radius: 3px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .ft-tag:hover { color: var(--t2); border-color: var(--b2); }
+
+    #widget-time {
+      font-family: var(--mono); font-size: 9px;
+      color: var(--t3); font-variant-numeric: tabular-nums;
+    }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 760px) {
+      .nav-links { display: none; }
+      .demo-grid { grid-template-columns: 1fr; }
+      .hero-bottom { flex-direction: column; align-items: flex-start; gap: 28px; }
+      .stats { gap: 36px; }
+      .cta-inner { flex-direction: column; align-items: flex-start; }
+      .upload-inner { flex-direction: column; align-items: flex-start; }
+      .wrap { padding: 0 20px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
   </style>
 </head>
-<body class="bg-[#0a0a0a] text-white min-h-screen">
+<body>
 
-  <!-- Header -->
-  <header class="border-b border-white/10 px-6 py-4 flex items-center justify-between max-w-5xl mx-auto">
-    <div>
-      <span class="text-sm font-semibold text-blue-400 tracking-widest uppercase">Reply Engine</span>
-      <p class="text-xs text-gray-500 mt-0.5">by <a href="https://skyhan.app" class="hover:text-blue-400 transition">skyhan.app</a></p>
+  <!-- ── Nav ── -->
+  <header class="z">
+    <div class="wrap">
+      <nav>
+        <div class="nav-logo">
+          <div class="nav-logo-mark">
+            <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 1L11 6L6 11L1 6L6 1Z" fill="#09090f" stroke="#09090f" stroke-width="0.5"/>
+            </svg>
+          </div>
+          <span class="nav-logo-text">Reply Engine <span>/ skyhan.app</span></span>
+        </div>
+        <div class="nav-links">
+          <a href="https://skyhan.app">skyhan.app</a>
+          <a href="https://skyhan.app#work">projecten</a>
+          <a href="mailto:skayhan0@gmail.com">contact</a>
+        </div>
+        <div class="nav-status">
+          <div class="dot"></div>
+          Live demo
+        </div>
+      </nav>
     </div>
-    <a href="mailto:skayhan0@gmail.com"
-       class="text-xs px-4 py-2 rounded-full border border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white transition">
-      Contact opnemen →
-    </a>
   </header>
 
-  <!-- Hero -->
-  <section class="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center">
-    <div class="inline-block text-xs font-medium px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 mb-6">
-      Live demo — probeer het zelf
-    </div>
-    <h1 class="text-4xl md:text-5xl font-bold leading-tight mb-4">
-      Uw inbox.<br class="md:hidden"/> <span class="text-blue-400">Automatisch beantwoord.</span>
-    </h1>
-    <p class="text-gray-400 text-lg max-w-xl mx-auto">
-      Een AI-agent die klantvragen verwerkt: intentie herkent, kennisbank doorzoekt, en een professioneel concept-antwoord opstelt — in seconden.
-    </p>
-  </section>
-
-  <!-- Demo -->
-  <section class="max-w-3xl mx-auto px-6 pb-12">
-    <div class="bg-[#111] border border-white/10 rounded-2xl p-6 shadow-2xl">
-
-      <!-- Voorbeeldvragen -->
-      <p class="text-xs text-gray-500 mb-3 uppercase tracking-wider font-medium">Voorbeeldvragen</p>
-      <div class="flex flex-wrap gap-2 mb-5" id="examples">
-        <button onclick="setMessage(this)" class="example-btn text-sm px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-blue-500/50 hover:text-blue-400 transition">
-          Wat zijn jullie openingstijden?
-        </button>
-        <button onclick="setMessage(this)" class="example-btn text-sm px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-blue-500/50 hover:text-blue-400 transition">
-          Mijn bestelling is nog niet aangekomen.
-        </button>
-        <button onclick="setMessage(this)" class="example-btn text-sm px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-blue-500/50 hover:text-blue-400 transition">
-          Wat kost het SmartFlow Professional abonnement?
-        </button>
-      </div>
-
-      <!-- Input -->
-      <div class="flex gap-3">
-        <input id="message-input" type="text"
-          placeholder="Stel een klantvraag..."
-          class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition placeholder-gray-600"
-          onkeydown="if(event.key==='Enter') sendMessage()" />
-        <button onclick="sendMessage()"
-          class="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-medium transition whitespace-nowrap"
-          id="send-btn">
-          Verstuur →
-        </button>
-      </div>
-
-      <!-- Pipeline Steps -->
-      <div id="pipeline" class="hidden mt-6 space-y-3">
-        <p class="text-xs text-gray-500 uppercase tracking-wider font-medium mb-2">Agent pipeline</p>
-        <div class="step-row flex items-start gap-3" id="step-classify_intent">
-          <div class="step-dot mt-1" id="dot-classify_intent"></div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium">Intentie herkennen</span>
-              <span class="text-xs text-gray-500" id="time-classify_intent"></span>
-            </div>
-            <p class="text-xs text-gray-500 mt-0.5" id="detail-classify_intent"></p>
+  <!-- ── Hero ── -->
+  <section class="hero z">
+    <div class="wrap">
+      <div class="eyebrow">2026 — Inbox automatisering</div>
+      <h1 class="hero-headline">
+        Klantvragen<br>
+        <span class="word-italic">beantwoord</span> in<br>
+        <span class="word-accent">seconden.</span>
+      </h1>
+      <div class="hero-bottom">
+        <p class="hero-desc">
+          Vier AI-agents verwerken uw klantvragen volledig automatisch —
+          intentie herkennen, kennisbank doorzoeken en een concept antwoord opstellen.
+          Geen handmatige stappen, geen terugkerende kosten.
+        </p>
+        <div class="stats">
+          <div>
+            <div class="stat-val">4</div>
+            <div class="stat-lbl">AI Agents</div>
           </div>
-        </div>
-        <div class="step-row flex items-start gap-3" id="step-retrieve_knowledge">
-          <div class="step-dot mt-1" id="dot-retrieve_knowledge"></div>
-          <div class="flex-1">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium">Kennisbank doorzoeken</span>
-              <span class="text-xs text-gray-500" id="time-retrieve_knowledge"></span>
-            </div>
-            <p class="text-xs text-gray-500 mt-0.5" id="detail-retrieve_knowledge"></p>
+          <div>
+            <div class="stat-val">&lt;2s</div>
+            <div class="stat-lbl">Responstijd</div>
           </div>
-        </div>
-        <div class="step-row flex items-start gap-3" id="step-draft_response">
-          <div class="step-dot mt-1" id="dot-draft_response"></div>
-          <div class="flex-1">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium">Antwoord opstellen</span>
-              <span class="text-xs text-gray-500" id="time-draft_response"></span>
-            </div>
-            <p class="text-xs text-gray-500 mt-0.5" id="detail-draft_response"></p>
-          </div>
-        </div>
-        <div class="step-row flex items-start gap-3" id="step-check_quality">
-          <div class="step-dot mt-1" id="dot-check_quality"></div>
-          <div class="flex-1">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium">Kwaliteitscheck</span>
-              <span class="text-xs text-gray-500" id="time-check_quality"></span>
-            </div>
-            <p class="text-xs text-gray-500 mt-0.5" id="detail-check_quality"></p>
+          <div>
+            <div class="stat-val">0</div>
+            <div class="stat-lbl">Hallucinaties</div>
           </div>
         </div>
       </div>
-
-      <!-- Response -->
-      <div id="response-area" class="hidden mt-6">
-        <div class="border-t border-white/10 pt-5">
-          <div class="flex items-center justify-between mb-3">
-            <p class="text-xs text-gray-500 uppercase tracking-wider font-medium">Concept antwoord</p>
-            <span id="confidence-badge" class="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20"></span>
-          </div>
-          <div class="bg-white/5 rounded-xl p-4">
-            <pre id="response-text" class="text-sm text-gray-100 leading-relaxed font-sans"></pre>
-          </div>
-          <div id="sources-area" class="hidden mt-3">
-            <p class="text-xs text-gray-600 mb-2">Bronnen:</p>
-            <div id="sources-list" class="flex flex-wrap gap-2"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Upload sectie -->
-    <div class="mt-6 bg-[#111] border border-white/10 rounded-2xl p-6">
-      <h2 class="text-base font-semibold mb-1">Upload jouw eigen document</h2>
-      <p class="text-sm text-gray-400 mb-4">PDF, max 2MB — stel er direct vragen aan. Document verdwijnt automatisch na 1 uur.</p>
-
-      <div class="flex items-center gap-3">
-        <input type="file" id="pdf-input" accept=".pdf" class="hidden" onchange="uploadPDF()" />
-        <button onclick="document.getElementById('pdf-input').click()"
-          class="px-4 py-2 rounded-xl border border-white/20 text-sm hover:border-blue-500/50 hover:text-blue-400 transition">
-          📄 Kies PDF
-        </button>
-        <span id="upload-status" class="text-sm text-gray-500"></span>
-      </div>
-    </div>
-
-    <!-- CTA -->
-    <div class="mt-6 text-center">
-      <p class="text-gray-400 text-sm mb-3">Wil je dit koppelen aan jouw bedrijfsdocumenten?</p>
-      <a href="mailto:skayhan0@gmail.com?subject=Reply Engine — interesse"
-         class="inline-block px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-medium transition text-sm">
-        Neem contact op →
-      </a>
     </div>
   </section>
 
-  <!-- Stack badge -->
-  <footer class="border-t border-white/5 py-6 text-center">
-    <p class="text-xs text-gray-600">
-      Python · LangGraph · LangChain · OpenAI · ChromaDB · FastAPI · Docker
-    </p>
-  </footer>
+  <!-- ── Demo Grid ── -->
+  <div class="wrap z demo-section" style="margin-bottom: 80px;">
+    <div class="demo-grid">
+
+      <!-- Left: Composer -->
+      <div class="composer-panel">
+        <div class="panel-label">INPUT — Klantvraag</div>
+
+        <div class="company-row">
+          <div class="company-av">G</div>
+          <div>
+            <div class="company-name">GroenTech Services BV</div>
+            <div class="company-sub">Kennisbank geladen · Amsterdam</div>
+          </div>
+          <div class="company-live">● Actief</div>
+        </div>
+
+        <div class="chips">
+          <button class="chip" data-msg="Wat zijn jullie openingstijden?" onclick="setMsg(this)">Openingstijden?</button>
+          <button class="chip" data-msg="Mijn bestelling is nog niet aangekomen." onclick="setMsg(this)">Bestelling?</button>
+          <button class="chip" data-msg="Wat kost het SmartFlow Professional abonnement?" onclick="setMsg(this)">Prijs SmartFlow?</button>
+        </div>
+
+        <div class="input-wrap">
+          <textarea id="message-input"
+            placeholder="Schrijf een klantvraag..."
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
+        </div>
+
+        <button id="send-btn" onclick="send()">Verwerken →</button>
+      </div>
+
+      <!-- Right: Pipeline -->
+      <div class="pipeline-panel">
+        <div class="pipeline-header">
+          <div class="panel-label">OUTPUT — Pipeline status</div>
+        </div>
+
+        <div class="widget">
+          <div class="widget-header">
+            <div class="widget-title">
+              <span class="wdot"></span>
+              PIPELINE // IDLE
+            </div>
+            <span class="widget-ver">v1.0</span>
+          </div>
+          <div class="widget-body" id="pipeline">
+            <div class="idle-line">
+              <div><span class="ps">$</span> awaiting_input<span class="ps">...</span></div>
+              <div class="dim"># stuur een vraag om de pipeline te starten</div>
+            </div>
+          </div>
+          <div class="widget-footer">
+            <span>Arnhem — NL</span>
+            <span id="widget-time">--:--</span>
+          </div>
+        </div>
+
+        <!-- Response inside right panel -->
+        <div class="response-wrap" id="response-area">
+          <div class="resp-head">
+            <span class="lbl">// Concept antwoord</span>
+            <span id="confidence-badge"></span>
+          </div>
+          <div class="resp-body">
+            <div id="response-text"></div>
+            <div class="sources-row" id="sources-list" style="display:none;"></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Upload ── -->
+  <div class="upload-block z">
+    <div class="wrap">
+      <div class="upload-inner">
+        <div>
+          <div class="upload-eyebrow">Probeer met uw eigen document</div>
+          <div class="upload-title">Upload uw kennisbank</div>
+          <div class="upload-desc">PDF, max 2 MB — stel er direct 5 vragen aan. Automatisch verwijderd na 1 uur.</div>
+        </div>
+        <div class="upload-right">
+          <input type="file" id="pdf-input" accept=".pdf" style="display:none;" onchange="uploadPDF()" />
+          <button id="btn-upload" onclick="document.getElementById('pdf-input').click()">PDF uploaden →</button>
+          <span id="upload-status"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CTA ── -->
+  <section class="cta-block z">
+    <div class="wrap">
+      <div class="cta-inner">
+        <div>
+          <div class="cta-label">Interesse?</div>
+          <div class="cta-heading">Dit voor uw<br><em>eigen bedrijf?</em></div>
+          <p class="cta-sub">Implementatie in 1–2 weken. Vaste projectprijs, geen abonnement.</p>
+        </div>
+        <a href="mailto:skayhan0@gmail.com?subject=Reply Engine" class="btn-cta">Neem contact op →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ── -->
+  <div class="footer-wrap z">
+    <div class="wrap">
+      <footer>
+        <span class="ft-left">skyhan.app // 2026</span>
+        <div class="ft-tags">
+          <span class="ft-tag">LangGraph</span>
+          <span class="ft-tag">OpenAI</span>
+          <span class="ft-tag">ChromaDB</span>
+          <span class="ft-tag">FastAPI</span>
+          <span class="ft-tag">Python</span>
+          <span class="ft-tag">Docker</span>
+        </div>
+      </footer>
+    </div>
+  </div>
 
   <script>
     const API_URL = window.location.hostname === 'localhost'
       ? 'http://localhost:8000'
       : 'https://reply-engine-api.railway.app';
+
     let currentCollection = 'groentech_kb';
     let uploadQueryCount = 0;
     const MAX_UPLOAD_QUERIES = 5;
-
     const NODE_KEYS = ['classify_intent', 'retrieve_knowledge', 'draft_response', 'check_quality'];
 
-    function setMessage(btn) {
-      document.getElementById('message-input').value = btn.textContent.trim();
+    // Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('widget-time').textContent =
+        now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    }
+    updateClock();
+    setInterval(updateClock, 10000);
+
+    function setMsg(btn) {
+      document.getElementById('message-input').value = btn.dataset.msg || btn.textContent;
+      document.getElementById('message-input').focus();
     }
 
-    function resetPipeline() {
-      NODE_KEYS.forEach(key => {
-        document.getElementById('dot-' + key).className = 'step-dot mt-1';
-        document.getElementById('time-' + key).textContent = '';
-        document.getElementById('detail-' + key).textContent = '';
-      });
-      document.getElementById('pipeline').classList.remove('hidden');
-      document.getElementById('response-area').classList.add('hidden');
+    function setWidgetTitle(txt) {
+      document.querySelector('.widget-title').innerHTML =
+        `<span class="wdot"></span>${txt}`;
+    }
+
+    function buildPipeline() {
+      const p = document.getElementById('pipeline');
+      p.innerHTML = '<div>' + NODE_KEYS.map(k => `
+        <div class="log-row pending" id="log-${k}">
+          <span class="log-ts" id="ts-${k}">—</span>
+          <span class="log-ic"></span>
+          <span class="log-lbl">${k}</span>
+          <span class="log-val" id="val-${k}"></span>
+        </div>
+        <div class="log-bar"><div class="log-bar-fill" id="bar-${k}"></div></div>
+        <div class="log-hint" id="hint-${k}" style="display:none;"></div>
+      `).join('') + '</div>';
+    }
+
+    function resetUI() {
+      buildPipeline();
+      setWidgetTitle('PIPELINE // RUNNING');
+      document.getElementById('response-area').classList.remove('open');
       document.getElementById('response-text').textContent = '';
-      document.getElementById('sources-area').classList.add('hidden');
+      const sl = document.getElementById('sources-list');
+      sl.style.display = 'none'; sl.innerHTML = '';
     }
 
     function activateStep(node) {
-      const dot = document.getElementById('dot-' + node);
-      if (dot) { dot.className = 'step-dot mt-1 active step-pulse'; }
+      const row = document.getElementById('log-' + node);
+      if (!row) return;
+      row.className = 'log-row active';
+      document.getElementById('ts-' + node).textContent = '...';
+      document.getElementById('bar-' + node).style.width = '45%';
     }
 
-    function completeStep(node, elapsed, detail) {
-      const dot = document.getElementById('dot-' + node);
-      if (dot) { dot.className = 'step-dot mt-1 done'; }
-      const timeEl = document.getElementById('time-' + node);
-      if (timeEl) timeEl.textContent = (elapsed / 1000).toFixed(1) + 's ✓';
-      const detailEl = document.getElementById('detail-' + node);
-      if (detailEl && detail) detailEl.textContent = detail;
+    function completeStep(node, elapsed, hint) {
+      const row = document.getElementById('log-' + node);
+      if (!row) return;
+      row.className = 'log-row done';
+      document.getElementById('ts-' + node).textContent = (elapsed/1000).toFixed(1)+'s';
+      document.getElementById('val-' + node).textContent = 'DONE';
+      document.getElementById('bar-' + node).style.width = '100%';
+      const h = document.getElementById('hint-' + node);
+      if (h && hint) { h.textContent = hint; h.style.display = 'block'; }
     }
 
     function animateResponse(text) {
       const el = document.getElementById('response-text');
       const words = text.split(' ');
-      let i = 0;
-      el.textContent = '';
-      document.getElementById('response-area').classList.remove('hidden');
-      const interval = setInterval(() => {
-        if (i < words.length) {
-          el.textContent += (i > 0 ? ' ' : '') + words[i++];
-        } else {
-          clearInterval(interval);
-        }
-      }, 25);
+      let i = 0; el.textContent = '';
+      document.getElementById('response-area').classList.add('open');
+      setWidgetTitle('PIPELINE // DONE');
+      const iv = setInterval(() => {
+        if (i < words.length) { el.textContent += (i>0?' ':'')+words[i++]; }
+        else clearInterval(iv);
+      }, 22);
     }
 
     function handleStep(data) {
       const { node, elapsed_ms, data: d } = data;
+      const next = NODE_KEYS.indexOf(node) + 1;
+      if (next < NODE_KEYS.length) activateStep(NODE_KEYS[next]);
 
-      const nextIndex = NODE_KEYS.indexOf(node) + 1;
-      if (nextIndex < NODE_KEYS.length) activateStep(NODE_KEYS[nextIndex]);
-
-      let detail = '';
-      if (node === 'classify_intent' && d.intent) detail = '"' + d.intent + '" — ' + Math.round((d.confidence||0)*100) + '% zeker';
-      if (node === 'retrieve_knowledge' && d.passages) {
-        detail = d.passages.length + ' relevante passages gevonden';
+      let hint = '';
+      if (node === 'classify_intent' && d.intent)
+        hint = `INTENT: ${d.intent.toUpperCase()} // CONF: ${Math.round((d.confidence||0)*100)}%`;
+      if (node === 'retrieve_knowledge' && d.passages != null) {
+        hint = `${d.passages.length} PASSAGES GEVONDEN`;
         if (d.sources && d.sources.length) {
-          const sourcesArea = document.getElementById('sources-area');
-          const sourcesList = document.getElementById('sources-list');
-          sourcesList.innerHTML = '';
+          const sl = document.getElementById('sources-list');
+          sl.innerHTML = '';
           [...new Set(d.sources)].forEach(s => {
-            const chip = document.createElement('span');
-            chip.className = 'text-xs px-2 py-0.5 rounded bg-white/5 text-gray-400';
-            chip.textContent = s;
-            sourcesList.appendChild(chip);
+            const c = document.createElement('span'); c.className = 'src'; c.textContent = s;
+            sl.appendChild(c);
           });
-          sourcesArea.classList.remove('hidden');
+          sl.style.display = 'flex';
         }
       }
-      if (node === 'check_quality' && d.confidence_score !== undefined) {
-        detail = 'Betrouwbaarheid ' + Math.round(d.confidence_score * 100) + '%';
-      }
+      if (node === 'check_quality' && d.confidence_score != null)
+        hint = `SCORE: ${Math.round(d.confidence_score*100)}% // PASSED: ${String(d.passed).toUpperCase()}`;
 
-      completeStep(node, elapsed_ms, detail);
+      completeStep(node, elapsed_ms, hint);
 
       if (node === 'finalize' && d.response) {
-        document.getElementById('confidence-badge').textContent =
-          'Betrouwbaarheid: ' + Math.round((d.confidence_score || 0.9) * 100) + '%';
+        const b = document.getElementById('confidence-badge');
+        if (b) b.textContent = Math.round((d.confidence_score||0.9)*100) + '% CONF';
         animateResponse(d.response);
       }
     }
 
-    async function sendMessage() {
+    async function send() {
       const input = document.getElementById('message-input');
       const message = input.value.trim();
       if (!message) return;
 
       if (currentCollection !== 'groentech_kb' && uploadQueryCount >= MAX_UPLOAD_QUERIES) {
-        alert('Maximum van 5 vragen per upload bereikt.');
-        return;
+        alert('Maximum van 5 vragen per upload bereikt.'); return;
       }
 
-      resetPipeline();
+      resetUI();
       activateStep('classify_intent');
-      document.getElementById('send-btn').disabled = true;
-      document.getElementById('send-btn').textContent = 'Verwerken...';
+      const btn = document.getElementById('send-btn');
+      btn.disabled = true; btn.textContent = 'VERWERKEN...';
 
       try {
-        const response = await fetch(API_URL + '/process', {
+        const res = await fetch(API_URL + '/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message, collection_name: currentCollection }),
         });
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-          const text = decoder.decode(value);
+          const text = dec.decode(value);
           for (const chunk of text.split('\n\n')) {
             if (!chunk.startsWith('data: ') || chunk.trim() === 'data: [DONE]') continue;
-            try {
-              handleStep(JSON.parse(chunk.slice(6)));
-            } catch {}
+            try { handleStep(JSON.parse(chunk.slice(6))); } catch {}
           }
         }
-
         if (currentCollection !== 'groentech_kb') uploadQueryCount++;
-      } catch (e) {
+      } catch(e) {
         console.error(e);
-        document.getElementById('response-text').textContent = 'Er is een fout opgetreden. Probeer het opnieuw.';
-        document.getElementById('response-area').classList.remove('hidden');
+        document.getElementById('response-text').textContent = 'VERBINDINGSFOUT — server bereikbaar?';
+        document.getElementById('response-area').classList.add('open');
+        setWidgetTitle('PIPELINE // ERROR');
       } finally {
-        document.getElementById('send-btn').disabled = false;
-        document.getElementById('send-btn').textContent = 'Verstuur →';
+        btn.disabled = false; btn.textContent = 'Verwerken →';
       }
     }
 
     async function uploadPDF() {
       const file = document.getElementById('pdf-input').files[0];
       if (!file) return;
-
-      const status = document.getElementById('upload-status');
-      status.textContent = 'Uploaden...';
-      status.className = 'text-sm text-gray-500';
-
-      const formData = new FormData();
-      formData.append('file', file);
-
+      const st = document.getElementById('upload-status');
+      st.className = ''; st.textContent = 'UPLOADEN...';
+      const fd = new FormData(); fd.append('file', file);
       try {
-        const res = await fetch(API_URL + '/upload', { method: 'POST', body: formData });
-        if (!res.ok) {
-          const err = await res.json();
-          status.textContent = '✕ ' + (err.detail || 'Upload mislukt');
-          return;
-        }
+        const res = await fetch(API_URL + '/upload', { method: 'POST', body: fd });
+        if (!res.ok) { const err = await res.json(); st.textContent = err.detail || 'FOUT'; return; }
         const data = await res.json();
-        currentCollection = data.collection_name;
-        uploadQueryCount = 0;
-        status.textContent = '✓ ' + data.document_name + ' geladen (' + data.chunk_count + ' passages). Stel nu een vraag!';
-        status.className = 'text-sm text-green-400';
-      } catch (e) {
-        status.textContent = '✕ Upload mislukt';
-      }
+        currentCollection = data.collection_name; uploadQueryCount = 0;
+        st.textContent = `✓ ${data.document_name} // ${data.chunk_count} PASSAGES`;
+        st.className = 'ok';
+      } catch { st.textContent = 'UPLOAD MISLUKT'; }
     }
   </script>
 </body>

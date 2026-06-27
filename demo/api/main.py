@@ -112,7 +112,7 @@ async def upload_document(file: UploadFile = File(...)):
 
     try:
         from langchain_community.document_loaders import PyPDFLoader
-        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
 
         docs = PyPDFLoader(str(tmp_path)).load()
         splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150)
