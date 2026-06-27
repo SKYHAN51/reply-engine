@@ -171,7 +171,9 @@
   </footer>
 
   <script>
-    const API_URL = 'http://localhost:8000';
+    const API_URL = window.location.hostname === 'localhost'
+      ? 'http://localhost:8000'
+      : 'https://reply-engine-api.railway.app';
     let currentCollection = 'groentech_kb';
     let uploadQueryCount = 0;
     const MAX_UPLOAD_QUERIES = 5;

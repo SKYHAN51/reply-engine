@@ -4,5 +4,4 @@
 __pycache__
 demo/api/chroma_db/
 .tmp/
-*.md
 docs/

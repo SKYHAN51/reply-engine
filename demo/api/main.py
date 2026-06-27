@@ -47,6 +47,12 @@ def _extract_step_data(node_name: str, state: dict) -> dict:
             "sources": getattr(k, "sources", []),
             "passages": getattr(k, "passages", [])[:3],
         }
+    if node_name == "check_quality" and state.get("quality"):
+        q = state["quality"]
+        return {
+            "confidence_score": getattr(q, "confidence_score", 0.0),
+            "passed": getattr(q, "passed", False),
+        }
     if node_name == "finalize" and state.get("final_response"):
         quality = state.get("quality")
         return {
