@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="nl" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reply Engine — AI Inbox Agent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .step-pulse { animation: pulse 1.5s cubic-bezier(0.4,0,0.6,1) infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .step-row { transition: all 0.3s ease; }
+    .step-dot { width:10px; height:10px; border-radius:50%; background:#374151; transition:all 0.3s; }
+    .step-dot.active { background:#3b82f6; box-shadow:0 0 8px #3b82f6; }
+    .step-dot.done { background:#10b981; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body class="bg-[#0a0a0a] text-white min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-white/10 px-6 py-4 flex items-center justify-between max-w-5xl mx-auto">
+    <div>
+      <span class="text-sm font-semibold text-blue-400 tracking-widest uppercase">Reply Engine</span>
+      <p class="text-xs text-gray-500 mt-0.5">by <a href="https://skyhan.app" class="hover:text-blue-400 transition">skyhan.app</a></p>
+    </div>
+    <a href="mailto:skayhan0@gmail.com"
+       class="text-xs px-4 py-2 rounded-full border border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white transition">
+      Contact opnemen →
+    </a>
+  </header>
+
+  <!-- Hero -->
+  <section class="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center">
+    <div class="inline-block text-xs font-medium px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 mb-6">
+      Live demo — probeer het zelf
+    </div>
+    <h1 class="text-4xl md:text-5xl font-bold leading-tight mb-4">
+      Uw inbox.<br class="md:hidden"/> <span class="text-blue-400">Automatisch beantwoord.</span>
+    </h1>
+    <p class="text-gray-400 text-lg max-w-xl mx-auto">
+      Een AI-agent die klantvragen verwerkt: intentie herkent, kennisbank doorzoekt, en een professioneel concept-antwoord opstelt — in seconden.
+    </p>
+  </section>
+
+  <!-- Demo -->
+  <section class="max-w-3xl mx-auto px-6 pb-12">
+    <div class="bg-[#111] border border-white/10 rounded-2xl p-6 shadow-2xl">
+
+      <!-- Voorbeeldvragen -->
+      <p class="text-xs text-gray-500 mb-3 uppercase tracking-wider font-medium">Voorbeeldvragen</p>
+      <div class="flex flex-wrap gap-2 mb-5" id="examples">
+        <button onclick="setMessage(this)" class="example-btn text-sm px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-blue-500/50 hover:text-blue-400 transition">
+          Wat zijn jullie openingstijden?
+        </button>
+        <button onclick="setMessage(this)" class="example-btn text-sm px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-blue-500/50 hover:text-blue-400 transition">
+          Mijn bestelling is nog niet aangekomen.
+        </button>
+        <button onclick="setMessage(this)" class="example-btn text-sm px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-blue-500/50 hover:text-blue-400 transition">
+          Wat kost het SmartFlow Professional abonnement?
+        </button>
+      </div>
+
+      <!-- Input -->
+      <div class="flex gap-3">
+        <input id="message-input" type="text"
+          placeholder="Stel een klantvraag..."
+          class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition placeholder-gray-600"
+          onkeydown="if(event.key==='Enter') sendMessage()" />
+        <button onclick="sendMessage()"
+          class="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-medium transition whitespace-nowrap"
+          id="send-btn">
+          Verstuur →
+        </button>
+      </div>
+
+      <!-- Pipeline Steps -->
+      <div id="pipeline" class="hidden mt-6 space-y-3">
+        <p class="text-xs text-gray-500 uppercase tracking-wider font-medium mb-2">Agent pipeline</p>
+        <div class="step-row flex items-start gap-3" id="step-classify_intent">
+          <div class="step-dot mt-1" id="dot-classify_intent"></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium">Intentie herkennen</span>
+              <span class="text-xs text-gray-500" id="time-classify_intent"></span>
+            </div>
+            <p class="text-xs text-gray-500 mt-0.5" id="detail-classify_intent"></p>
+          </div>
+        </div>
+        <div class="step-row flex items-start gap-3" id="step-retrieve_knowledge">
+          <div class="step-dot mt-1" id="dot-retrieve_knowledge"></div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium">Kennisbank doorzoeken</span>
+              <span class="text-xs text-gray-500" id="time-retrieve_knowledge"></span>
+            </div>
+            <p class="text-xs text-gray-500 mt-0.5" id="detail-retrieve_knowledge"></p>
+          </div>
+        </div>
+        <div class="step-row flex items-start gap-3" id="step-draft_response">
+          <div class="step-dot mt-1" id="dot-draft_response"></div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium">Antwoord opstellen</span>
+              <span class="text-xs text-gray-500" id="time-draft_response"></span>
+            </div>
+            <p class="text-xs text-gray-500 mt-0.5" id="detail-draft_response"></p>
+          </div>
+        </div>
+        <div class="step-row flex items-start gap-3" id="step-check_quality">
+          <div class="step-dot mt-1" id="dot-check_quality"></div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium">Kwaliteitscheck</span>
+              <span class="text-xs text-gray-500" id="time-check_quality"></span>
+            </div>
+            <p class="text-xs text-gray-500 mt-0.5" id="detail-check_quality"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Response -->
+      <div id="response-area" class="hidden mt-6">
+        <div class="border-t border-white/10 pt-5">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs text-gray-500 uppercase tracking-wider font-medium">Concept antwoord</p>
+            <span id="confidence-badge" class="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20"></span>
+          </div>
+          <div class="bg-white/5 rounded-xl p-4">
+            <pre id="response-text" class="text-sm text-gray-100 leading-relaxed font-sans"></pre>
+          </div>
+          <div id="sources-area" class="hidden mt-3">
+            <p class="text-xs text-gray-600 mb-2">Bronnen:</p>
+            <div id="sources-list" class="flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload sectie -->
+    <div class="mt-6 bg-[#111] border border-white/10 rounded-2xl p-6">
+      <h2 class="text-base font-semibold mb-1">Upload jouw eigen document</h2>
+      <p class="text-sm text-gray-400 mb-4">PDF, max 2MB — stel er direct vragen aan. Document verdwijnt automatisch na 1 uur.</p>
+
+      <div class="flex items-center gap-3">
+        <input type="file" id="pdf-input" accept=".pdf" class="hidden" onchange="uploadPDF()" />
+        <button onclick="document.getElementById('pdf-input').click()"
+          class="px-4 py-2 rounded-xl border border-white/20 text-sm hover:border-blue-500/50 hover:text-blue-400 transition">
+          📄 Kies PDF
+        </button>
+        <span id="upload-status" class="text-sm text-gray-500"></span>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="mt-6 text-center">
+      <p class="text-gray-400 text-sm mb-3">Wil je dit koppelen aan jouw bedrijfsdocumenten?</p>
+      <a href="mailto:skayhan0@gmail.com?subject=Reply Engine — interesse"
+         class="inline-block px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-medium transition text-sm">
+        Neem contact op →
+      </a>
+    </div>
+  </section>
+
+  <!-- Stack badge -->
+  <footer class="border-t border-white/5 py-6 text-center">
+    <p class="text-xs text-gray-600">
+      Python · LangGraph · LangChain · OpenAI · ChromaDB · FastAPI · Docker
+    </p>
+  </footer>
+
+  <script>
+    const API_URL = 'http://localhost:8000';
+    let currentCollection = 'groentech_kb';
+    let uploadQueryCount = 0;
+    const MAX_UPLOAD_QUERIES = 5;
+
+    const NODE_KEYS = ['classify_intent', 'retrieve_knowledge', 'draft_response', 'check_quality'];
+
+    function setMessage(btn) {
+      document.getElementById('message-input').value = btn.textContent.trim();
+    }
+
+    function resetPipeline() {
+      NODE_KEYS.forEach(key => {
+        document.getElementById('dot-' + key).className = 'step-dot mt-1';
+        document.getElementById('time-' + key).textContent = '';
+        document.getElementById('detail-' + key).textContent = '';
+      });
+      document.getElementById('pipeline').classList.remove('hidden');
+      document.getElementById('response-area').classList.add('hidden');
+      document.getElementById('response-text').textContent = '';
+      document.getElementById('sources-area').classList.add('hidden');
+    }
+
+    function activateStep(node) {
+      const dot = document.getElementById('dot-' + node);
+      if (dot) { dot.className = 'step-dot mt-1 active step-pulse'; }
+    }
+
+    function completeStep(node, elapsed, detail) {
+      const dot = document.getElementById('dot-' + node);
+      if (dot) { dot.className = 'step-dot mt-1 done'; }
+      const timeEl = document.getElementById('time-' + node);
+      if (timeEl) timeEl.textContent = (elapsed / 1000).toFixed(1) + 's ✓';
+      const detailEl = document.getElementById('detail-' + node);
+      if (detailEl && detail) detailEl.textContent = detail;
+    }
+
+    function animateResponse(text) {
+      const el = document.getElementById('response-text');
+      const words = text.split(' ');
+      let i = 0;
+      el.textContent = '';
+      document.getElementById('response-area').classList.remove('hidden');
+      const interval = setInterval(() => {
+        if (i < words.length) {
+          el.textContent += (i > 0 ? ' ' : '') + words[i++];
+        } else {
+          clearInterval(interval);
+        }
+      }, 25);
+    }
+
+    function handleStep(data) {
+      const { node, elapsed_ms, data: d } = data;
+
+      const nextIndex = NODE_KEYS.indexOf(node) + 1;
+      if (nextIndex < NODE_KEYS.length) activateStep(NODE_KEYS[nextIndex]);
+
+      let detail = '';
+      if (node === 'classify_intent' && d.intent) detail = '"' + d.intent + '" — ' + Math.round((d.confidence||0)*100) + '% zeker';
+      if (node === 'retrieve_knowledge' && d.passages) {
+        detail = d.passages.length + ' relevante passages gevonden';
+        if (d.sources && d.sources.length) {
+          const sourcesArea = document.getElementById('sources-area');
+          const sourcesList = document.getElementById('sources-list');
+          sourcesList.innerHTML = '';
+          [...new Set(d.sources)].forEach(s => {
+            const chip = document.createElement('span');
+            chip.className = 'text-xs px-2 py-0.5 rounded bg-white/5 text-gray-400';
+            chip.textContent = s;
+            sourcesList.appendChild(chip);
+          });
+          sourcesArea.classList.remove('hidden');
+        }
+      }
+      if (node === 'check_quality' && d.confidence_score !== undefined) {
+        detail = 'Betrouwbaarheid ' + Math.round(d.confidence_score * 100) + '%';
+      }
+
+      completeStep(node, elapsed_ms, detail);
+
+      if (node === 'finalize' && d.response) {
+        document.getElementById('confidence-badge').textContent =
+          'Betrouwbaarheid: ' + Math.round((d.confidence_score || 0.9) * 100) + '%';
+        animateResponse(d.response);
+      }
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('message-input');
+      const message = input.value.trim();
+      if (!message) return;
+
+      if (currentCollection !== 'groentech_kb' && uploadQueryCount >= MAX_UPLOAD_QUERIES) {
+        alert('Maximum van 5 vragen per upload bereikt.');
+        return;
+      }
+
+      resetPipeline();
+      activateStep('classify_intent');
+      document.getElementById('send-btn').disabled = true;
+      document.getElementById('send-btn').textContent = 'Verwerken...';
+
+      try {
+        const response = await fetch(API_URL + '/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, collection_name: currentCollection }),
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          const text = decoder.decode(value);
+          for (const chunk of text.split('\n\n')) {
+            if (!chunk.startsWith('data: ') || chunk.trim() === 'data: [DONE]') continue;
+            try {
+              handleStep(JSON.parse(chunk.slice(6)));
+            } catch {}
+          }
+        }
+
+        if (currentCollection !== 'groentech_kb') uploadQueryCount++;
+      } catch (e) {
+        console.error(e);
+        document.getElementById('response-text').textContent = 'Er is een fout opgetreden. Probeer het opnieuw.';
+        document.getElementById('response-area').classList.remove('hidden');
+      } finally {
+        document.getElementById('send-btn').disabled = false;
+        document.getElementById('send-btn').textContent = 'Verstuur →';
+      }
+    }
+
+    async function uploadPDF() {
+      const file = document.getElementById('pdf-input').files[0];
+      if (!file) return;
+
+      const status = document.getElementById('upload-status');
+      status.textContent = 'Uploaden...';
+      status.className = 'text-sm text-gray-500';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch(API_URL + '/upload', { method: 'POST', body: formData });
+        if (!res.ok) {
+          const err = await res.json();
+          status.textContent = '✕ ' + (err.detail || 'Upload mislukt');
+          return;
+        }
+        const data = await res.json();
+        currentCollection = data.collection_name;
+        uploadQueryCount = 0;
+        status.textContent = '✓ ' + data.document_name + ' geladen (' + data.chunk_count + ' passages). Stel nu een vraag!';
+        status.className = 'text-sm text-green-400';
+      } catch (e) {
+        status.textContent = '✕ Upload mislukt';
+      }
+    }
+  </script>
+</body>
+</html>
