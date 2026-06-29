@@ -9,15 +9,21 @@ from typing import AsyncGenerator
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from models import PipelineState, ProcessRequest, UploadResponse
 from orchestrator import pipeline
 from vectorstore import get_vectorstore
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="Reply Engine API", version="1.0.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -88,7 +94,8 @@ async def _stream_pipeline(message: str, collection_name: str) -> AsyncGenerator
 
 
 @app.post("/process")
-async def process_message(request: ProcessRequest):
+@limiter.limit("10/minute")
+async def process_message(http_request: Request, request: ProcessRequest):
     return StreamingResponse(
         _stream_pipeline(request.message, request.collection_name),
         media_type="text/event-stream",
@@ -97,7 +104,8 @@ async def process_message(request: ProcessRequest):
 
 
 @app.post("/upload", response_model=UploadResponse)
-async def upload_document(file: UploadFile = File(...)):
+@limiter.limit("5/minute")
+async def upload_document(http_request: Request, file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Alleen PDF bestanden worden ondersteund.")
     content = await file.read()
