@@ -28,6 +28,8 @@
       --serif:  'DM Serif Display', Georgia, serif;
       --sans:   'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --mono:   'JetBrains Mono', 'SF Mono', monospace;
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
     }
 
     html { scroll-behavior: smooth; }
@@ -114,7 +116,9 @@
       color: var(--t2); text-decoration: none;
       transition: color 0.15s;
     }
-    .nav-links a:hover { color: var(--t1); }
+    @media (hover: hover) and (pointer: fine) {
+      .nav-links a:hover { color: var(--t1); }
+    }
 
     .nav-status {
       display: flex; align-items: center; gap: 7px;
@@ -269,13 +273,16 @@
       border-radius: 4px;
       background: transparent; color: var(--t2);
       cursor: pointer;
-      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      transition: border-color 150ms var(--ease-out), color 150ms var(--ease-out), background 150ms var(--ease-out), transform 120ms var(--ease-out);
     }
-    .chip:hover {
-      border-color: var(--lime);
-      color: var(--lime);
-      background: var(--lime-d);
+    @media (hover: hover) and (pointer: fine) {
+      .chip:hover {
+        border-color: var(--lime);
+        color: var(--lime);
+        background: var(--lime-d);
+      }
     }
+    .chip:active { transform: scale(0.96); }
 
     .input-wrap {
       border: 1px solid var(--b1);
@@ -284,6 +291,7 @@
       margin-bottom: 12px;
       transition: border-color 0.2s;
     }
+    .input-wrap { transition: border-color 150ms var(--ease-out); }
     .input-wrap:focus-within { border-color: var(--b3); }
 
     #message-input {
@@ -303,10 +311,12 @@
       background: var(--lime); color: var(--bg);
       border: none; cursor: pointer;
       border-radius: 8px;
-      transition: opacity 0.15s, transform 0.1s;
+      transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
     }
-    #send-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
-    #send-btn:active:not(:disabled) { transform: translateY(0); }
+    @media (hover: hover) and (pointer: fine) {
+      #send-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+    }
+    #send-btn:active:not(:disabled) { transform: scale(0.97); }
     #send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
     /* ─── PIPELINE PANEL ─── */
@@ -384,7 +394,7 @@
     .log-bar-fill {
       height: 100%; width: 0;
       background: linear-gradient(90deg, var(--lime), var(--indigo));
-      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: width 400ms var(--ease-out);
     }
 
     .log-hint {
@@ -419,6 +429,12 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    @keyframes rowIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .log-row { animation: rowIn 180ms var(--ease-out) both; }
+
     .widget-footer {
       display: flex; justify-content: space-between; align-items: center;
       padding: 8px 14px;
@@ -429,13 +445,21 @@
 
     /* ─── RESPONSE (JS toggles .open) ─── */
     .response-wrap {
-      display: none;
-      margin: 0 28px 28px;
+      opacity: 0;
+      transform: translateY(6px);
+      pointer-events: none;
+      margin: 0 28px 0;
       border: 1px solid var(--b1);
       border-radius: 8px; overflow: hidden;
       background: var(--bg);
+      transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out), margin-bottom 220ms var(--ease-out);
     }
-    .response-wrap.open { display: block; }
+    .response-wrap.open {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+      margin-bottom: 28px;
+    }
 
     .resp-head {
       display: flex; align-items: center; justify-content: space-between;
@@ -523,9 +547,12 @@
       background: var(--lime); color: var(--bg);
       border: none; cursor: pointer;
       border-radius: 7px;
-      transition: opacity 0.15s, transform 0.1s;
+      transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
     }
-    #btn-upload:hover { opacity: 0.88; transform: translateY(-1px); }
+    @media (hover: hover) and (pointer: fine) {
+      #btn-upload:hover { opacity: 0.88; transform: translateY(-1px); }
+    }
+    #btn-upload:active { transform: scale(0.97); }
 
     #upload-status {
       font-family: var(--mono); font-size: 10px;
@@ -583,10 +610,12 @@
       display: inline-flex; align-items: center; gap: 8px;
       flex-shrink: 0;
       border-radius: 8px;
-      transition: opacity 0.15s, transform 0.12s;
+      transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
     }
-    .btn-cta:hover { opacity: 0.88; transform: translateY(-2px); }
-    .btn-cta:active { transform: translateY(0); }
+    @media (hover: hover) and (pointer: fine) {
+      .btn-cta:hover { opacity: 0.88; transform: translateY(-2px); }
+    }
+    .btn-cta:active { transform: scale(0.97); }
 
     /* ─── FOOTER ─── */
     .footer-wrap {
@@ -610,7 +639,9 @@
       padding: 3px 8px; border-radius: 3px;
       transition: color 0.15s, border-color 0.15s;
     }
-    .ft-tag:hover { color: var(--t2); border-color: var(--b2); }
+    @media (hover: hover) and (pointer: fine) {
+      .ft-tag:hover { color: var(--t2); border-color: var(--b2); }
+    }
 
     #widget-time {
       font-family: var(--mono); font-size: 9px;
@@ -852,8 +883,8 @@
 
     function buildPipeline() {
       const p = document.getElementById('pipeline');
-      p.innerHTML = '<div>' + NODE_KEYS.map(k => `
-        <div class="log-row pending" id="log-${k}">
+      p.innerHTML = '<div>' + NODE_KEYS.map((k, i) => `
+        <div class="log-row pending" id="log-${k}" style="animation-delay:${i * 55}ms">
           <span class="log-ts" id="ts-${k}">—</span>
           <span class="log-ic"></span>
           <span class="log-lbl">${k}</span>
