@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Voice Receptionist — Snelservice Installatie</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    body { background: #0a0a0b; color: #f5f5f5; font-family: 'Inter', system-ui, sans-serif; }
+    .pulse { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .fade-in {
+      animation: fadeIn 0.4s var(--ease-out) both;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .call-btn {
+      transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+    }
+    .call-btn:hover { transform: scale(1.02); }
+    .call-btn:active { transform: scale(0.97); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-white/10 px-6 py-4">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <span class="text-sm font-mono text-white/40">skyhan.app / voice-receptionist</span>
+      <a href="https://skyhan.app" class="text-sm text-white/40 hover:text-white transition-colors">← Portfolio</a>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="flex-1 max-w-4xl mx-auto w-full px-6 py-16">
+
+    <!-- Hero -->
+    <div class="mb-12">
+      <div class="text-xs font-mono uppercase tracking-widest text-white/30 mb-4">Project C · Voice AI</div>
+      <h1 class="text-4xl font-bold mb-4 leading-tight">
+        AI Voice Receptionist
+      </h1>
+      <p class="text-lg text-white/60 max-w-xl">
+        Nooit meer een gemiste oproep. Deze AI-receptionist neemt op, beantwoordt vragen
+        en boekt afspraken — 24/7, in het Nederlands.
+      </p>
+    </div>
+
+    <!-- Demo card -->
+    <div class="bg-white/5 border border-white/10 rounded-2xl p-8 mb-8">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-lg">🔧</div>
+        <div>
+          <div class="font-semibold">Snelservice Installatie BV</div>
+          <div class="text-sm text-white/40">Loodgietersbedrijf · Gelderland</div>
+        </div>
+        <div class="ml-auto">
+          <span id="status-badge" class="text-xs font-mono px-2 py-1 rounded-full bg-green-500/10 text-green-400">
+            ● Beschikbaar
+          </span>
+        </div>
+      </div>
+
+      <!-- Call button -->
+      <div id="call-section" class="text-center py-4">
+        <button
+          id="call-btn"
+          onclick="startCall()"
+          class="call-btn bg-white text-black font-semibold px-8 py-4 rounded-xl text-base"
+        >
+          📞 Bel Snelservice Installatie
+        </button>
+        <p class="text-xs text-white/30 mt-3">Microfoon vereist · Gratis · Geen app nodig</p>
+      </div>
+
+      <!-- Active call UI (hidden by default) -->
+      <div id="active-call" class="hidden">
+        <div class="flex items-center justify-center gap-3 mb-6">
+          <div class="w-3 h-3 rounded-full bg-red-500 pulse"></div>
+          <span class="text-sm font-mono text-white/60">Gesprek actief...</span>
+          <span id="call-timer" class="text-sm font-mono text-white/40">0:00</span>
+        </div>
+
+        <!-- Transcript -->
+        <div id="transcript" class="bg-black/30 rounded-xl p-4 mb-4 min-h-32 max-h-64 overflow-y-auto space-y-3">
+          <p class="text-white/30 text-sm text-center">Transcript verschijnt hier...</p>
+        </div>
+
+        <!-- End call -->
+        <div class="text-center">
+          <button
+            onclick="endCall()"
+            class="call-btn bg-red-500/20 text-red-400 border border-red-500/30 font-medium px-6 py-3 rounded-xl text-sm"
+          >
+            ✕ Gesprek beëindigen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Booking card (hidden by default) -->
+    <div id="booking-card" class="hidden fade-in bg-green-500/10 border border-green-500/30 rounded-2xl p-6 mb-8">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="text-2xl">✅</div>
+        <div>
+          <div class="font-semibold text-green-400">Afspraak bevestigd</div>
+          <div class="text-sm text-white/40">SMS bevestiging verstuurd</div>
+        </div>
+      </div>
+      <div id="booking-details" class="space-y-2 text-sm text-white/70"></div>
+    </div>
+
+    <!-- Stack -->
+    <div class="flex gap-2 flex-wrap mb-12">
+      <span class="text-xs font-mono px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/50">VAPI</span>
+      <span class="text-xs font-mono px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/50">FastAPI</span>
+      <span class="text-xs font-mono px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/50">GPT-4o</span>
+      <span class="text-xs font-mono px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/50">Supabase</span>
+      <span class="text-xs font-mono px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/50">n8n</span>
+    </div>
+
+    <!-- CTA -->
+    <div class="border border-white/10 rounded-2xl p-6 text-center">
+      <p class="text-white/60 mb-4">Wil je dit voor jouw bedrijf?</p>
+      <a
+        href="mailto:skayhan0@gmail.com?subject=Voice Receptionist interesse"
+        class="inline-block bg-white text-black font-semibold px-6 py-3 rounded-xl text-sm hover:bg-white/90 transition-colors"
+      >
+        Neem contact op →
+      </a>
+    </div>
+
+  </main>
+
+  <!-- VAPI SDK -->
+  <script>
+    // Vapi configuratie — vervang na deploy
+    const VAPI_PUBLIC_KEY = "JOUW_VAPI_PUBLIC_KEY";
+    const VAPI_ASSISTANT_ID = "JOUW_VAPI_ASSISTANT_ID";
+
+    let vapi = null;
+    let timerInterval = null;
+    let secondsElapsed = 0;
+    let lastBooking = null;
+
+    async function loadVapi() {
+      const { default: Vapi } = await import("https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.js");
+      vapi = new Vapi(VAPI_PUBLIC_KEY);
+
+      vapi.on("call-start", () => {
+        document.getElementById("call-section").classList.add("hidden");
+        document.getElementById("active-call").classList.remove("hidden");
+        document.getElementById("status-badge").textContent = "● Verbonden";
+        document.getElementById("status-badge").className = "text-xs font-mono px-2 py-1 rounded-full bg-red-500/10 text-red-400";
+        startTimer();
+      });
+
+      vapi.on("call-end", () => {
+        document.getElementById("active-call").classList.add("hidden");
+        document.getElementById("call-section").classList.remove("hidden");
+        document.getElementById("status-badge").textContent = "● Beschikbaar";
+        document.getElementById("status-badge").className = "text-xs font-mono px-2 py-1 rounded-full bg-green-500/10 text-green-400";
+        stopTimer();
+        if (lastBooking) showBookingCard(lastBooking);
+      });
+
+      vapi.on("message", (msg) => {
+        if (msg.type === "transcript") {
+          addTranscriptLine(msg.role, msg.transcript);
+        }
+        if (msg.type === "tool-calls") {
+          const toolCall = msg.toolCallList?.[0];
+          if (toolCall?.function?.name === "book_appointment") {
+            lastBooking = JSON.parse(toolCall.function.arguments || "{}");
+          }
+        }
+      });
+    }
+
+    async function startCall() {
+      if (!vapi) await loadVapi();
+      document.getElementById("transcript").innerHTML = "";
+      lastBooking = null;
+      await vapi.start(VAPI_ASSISTANT_ID);
+    }
+
+    function endCall() {
+      if (vapi) vapi.stop();
+    }
+
+    function addTranscriptLine(role, text) {
+      const container = document.getElementById("transcript");
+      const isFirst = container.querySelector("p.text-white\\/30");
+      if (isFirst) isFirst.remove();
+
+      const line = document.createElement("div");
+      line.className = `flex gap-2 ${role === "assistant" ? "" : "flex-row-reverse"}`;
+      line.innerHTML = `
+        <div class="max-w-xs px-3 py-2 rounded-xl text-sm ${
+          role === "assistant"
+            ? "bg-white/10 text-white/80"
+            : "bg-blue-500/20 text-blue-200"
+        }">
+          <span class="text-xs font-mono opacity-50 block mb-1">${role === "assistant" ? "AI" : "Klant"}</span>
+          ${text}
+        </div>
+      `;
+      container.appendChild(line);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function showBookingCard(booking) {
+      const card = document.getElementById("booking-card");
+      const details = document.getElementById("booking-details");
+      details.innerHTML = `
+        <div class="grid grid-cols-2 gap-2">
+          <span class="text-white/40">Naam</span><span>${booking.naam || "—"}</span>
+          <span class="text-white/40">Datum</span><span>${booking.datum || "—"}</span>
+          <span class="text-white/40">Tijdstip</span><span>${booking.tijdstip || "—"}</span>
+          <span class="text-white/40">Probleem</span><span>${booking.probleem || "—"}</span>
+        </div>
+      `;
+      card.classList.remove("hidden");
+    }
+
+    function startTimer() {
+      secondsElapsed = 0;
+      timerInterval = setInterval(() => {
+        secondsElapsed++;
+        const min = Math.floor(secondsElapsed / 60);
+        const sec = secondsElapsed % 60;
+        document.getElementById("call-timer").textContent = `${min}:${sec.toString().padStart(2, "0")}`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+  </script>
+
+</body>
+</html>
