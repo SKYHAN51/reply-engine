@@ -101,6 +101,7 @@ response = httpx.post(
     json=assistant,
     timeout=30.0,
 )
+response.raise_for_status()
 data = response.json()
 print(f"Assistant ID: {data['id']}")
 print(f"Voeg toe aan .env: VAPI_ASSISTANT_ID={data['id']}")

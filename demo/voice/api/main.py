@@ -30,7 +30,10 @@ async def check_availability_endpoint(request: CheckAvailabilityRequest) -> Chec
 @app.post("/vapi/book-appointment", response_model=BookAppointmentResponse)
 async def book_appointment_endpoint(request: BookAppointmentRequest) -> BookAppointmentResponse:
     result = book_appointment(request)
-    await send_sms_confirmation(request.naam, request.telefoon, request.datum, request.tijdstip)
+    try:
+        await send_sms_confirmation(request.naam, request.telefoon, request.datum, request.tijdstip)
+    except Exception as exc:
+        print(f"[SMS] Verzending mislukt: {exc}")
     return result
 
 
