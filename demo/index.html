@@ -858,6 +858,7 @@
       : 'https://reply-engine-u1no.onrender.com';
 
     let currentCollection = 'groentech_kb';
+    let currentToken = null;
     let uploadQueryCount = 0;
     const MAX_UPLOAD_QUERIES = 5;
     const NODE_KEYS = ['classify_intent', 'retrieve_knowledge', 'draft_response', 'check_quality'];
@@ -985,7 +986,7 @@
         const res = await fetch(API_URL + '/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, collection_name: currentCollection }),
+          body: JSON.stringify({ message, collection_name: currentCollection, collection_token: currentToken }),
         });
         const reader = res.body.getReader();
         const dec = new TextDecoder();
@@ -1019,7 +1020,7 @@
         const res = await fetch(API_URL + '/upload', { method: 'POST', body: fd });
         if (!res.ok) { const err = await res.json(); st.textContent = err.detail || 'FOUT'; return; }
         const data = await res.json();
-        currentCollection = data.collection_name; uploadQueryCount = 0;
+        currentCollection = data.collection_name; currentToken = data.collection_token; uploadQueryCount = 0;
         st.textContent = `✓ ${data.document_name} // ${data.chunk_count} PASSAGES`;
         st.className = 'ok';
       } catch { st.textContent = 'UPLOAD MISLUKT'; }

@@ -47,12 +47,15 @@ class PipelineState(TypedDict):
 
 
 class ProcessRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=2000)
     collection_name: str = "groentech_kb"
+    # HMAC-token dat bij upload wordt uitgegeven; vereist voor upload_* collecties.
+    collection_token: Optional[str] = None
 
 
 class UploadResponse(BaseModel):
     collection_name: str
+    collection_token: str
     document_name: str
     chunk_count: int
     message: str

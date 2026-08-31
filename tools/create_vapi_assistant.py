@@ -7,6 +7,9 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 
 VAPI_KEY = os.environ["VAPI_PRIVATE_KEY"]
 API_BASE = os.environ.get("VOICE_API_URL", "http://localhost:8001")
+# Gedeeld geheim: VAPI stuurt dit als `X-Vapi-Secret` header bij elke tool-call,
+# de API weigert verzoeken zonder geldig geheim.
+SERVER_SECRET = os.environ["VAPI_SERVER_SECRET"]
 
 assistant = {
     "name": "Snelservice Receptionist",
@@ -46,7 +49,7 @@ assistant = {
                         "required": ["categorie"],
                     },
                 },
-                "server": {"url": f"{API_BASE}/vapi/faq"},
+                "server": {"url": f"{API_BASE}/vapi/faq", "secret": SERVER_SECRET},
             },
             {
                 "type": "function",
@@ -62,7 +65,7 @@ assistant = {
                         "required": ["datum", "tijdstip"],
                     },
                 },
-                "server": {"url": f"{API_BASE}/vapi/check-availability"},
+                "server": {"url": f"{API_BASE}/vapi/check-availability", "secret": SERVER_SECRET},
             },
             {
                 "type": "function",
@@ -81,9 +84,14 @@ assistant = {
                         "required": ["naam", "telefoon", "datum", "tijdstip", "probleem"],
                     },
                 },
-                "server": {"url": f"{API_BASE}/vapi/book-appointment"},
+                "server": {"url": f"{API_BASE}/vapi/book-appointment", "secret": SERVER_SECRET},
             },
         ],
+    },
+    "transcriber": {
+        "provider": "deepgram",
+        "model": "nova-2",
+        "language": "nl",
     },
     "voice": {
         "provider": "openai",

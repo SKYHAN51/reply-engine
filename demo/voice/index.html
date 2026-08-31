@@ -141,10 +141,11 @@
   </main>
 
   <!-- VAPI SDK -->
-  <script>
-    // Vapi configuratie — vervang na deploy
-    const VAPI_PUBLIC_KEY = "JOUW_VAPI_PUBLIC_KEY";
-    const VAPI_ASSISTANT_ID = "JOUW_VAPI_ASSISTANT_ID";
+  <script type="module">
+    import Vapi from '@vapi-ai/web';
+    // Vapi configuratie
+    const VAPI_PUBLIC_KEY = "4239dd64-7715-4849-9b8f-e7b0f195c4de";
+    const VAPI_ASSISTANT_ID = "b1452e63-0112-4949-b936-81458200f6bd";
 
     let vapi = null;
     let timerInterval = null;
@@ -152,7 +153,6 @@
     let lastBooking = null;
 
     async function loadVapi() {
-      const { default: Vapi } = await import("https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.js");
       vapi = new Vapi(VAPI_PUBLIC_KEY);
 
       vapi.on("call-start", () => {
@@ -189,7 +189,7 @@
       if (!vapi) await loadVapi();
       document.getElementById("transcript").innerHTML = "";
       lastBooking = null;
-      await vapi.start(VAPI_ASSISTANT_ID);
+      vapi.start(VAPI_ASSISTANT_ID);
     }
 
     function endCall() {
@@ -203,16 +203,19 @@
 
       const line = document.createElement("div");
       line.className = `flex gap-2 ${role === "assistant" ? "" : "flex-row-reverse"}`;
-      line.innerHTML = `
-        <div class="max-w-xs px-3 py-2 rounded-xl text-sm ${
-          role === "assistant"
-            ? "bg-white/10 text-white/80"
-            : "bg-blue-500/20 text-blue-200"
-        }">
-          <span class="text-xs font-mono opacity-50 block mb-1">${role === "assistant" ? "AI" : "Klant"}</span>
-          ${text}
-        </div>
-      `;
+
+      const bubble = document.createElement("div");
+      bubble.className = `max-w-xs px-3 py-2 rounded-xl text-sm ${
+        role === "assistant" ? "bg-white/10 text-white/80" : "bg-blue-500/20 text-blue-200"
+      }`;
+
+      const label = document.createElement("span");
+      label.className = "text-xs font-mono opacity-50 block mb-1";
+      label.textContent = role === "assistant" ? "AI" : "Klant";
+
+      bubble.appendChild(label);
+      bubble.appendChild(document.createTextNode(text));  // textContent-veilig: geen HTML-injectie
+      line.appendChild(bubble);
       container.appendChild(line);
       container.scrollTop = container.scrollHeight;
     }
@@ -220,14 +223,25 @@
     function showBookingCard(booking) {
       const card = document.getElementById("booking-card");
       const details = document.getElementById("booking-details");
-      details.innerHTML = `
-        <div class="grid grid-cols-2 gap-2">
-          <span class="text-white/40">Naam</span><span>${booking.naam || "—"}</span>
-          <span class="text-white/40">Datum</span><span>${booking.datum || "—"}</span>
-          <span class="text-white/40">Tijdstip</span><span>${booking.tijdstip || "—"}</span>
-          <span class="text-white/40">Probleem</span><span>${booking.probleem || "—"}</span>
-        </div>
-      `;
+
+      const grid = document.createElement("div");
+      grid.className = "grid grid-cols-2 gap-2";
+      const rows = [
+        ["Naam", booking.naam],
+        ["Datum", booking.datum],
+        ["Tijdstip", booking.tijdstip],
+        ["Probleem", booking.probleem],
+      ];
+      for (const [label, value] of rows) {
+        const l = document.createElement("span");
+        l.className = "text-white/40";
+        l.textContent = label;
+        const v = document.createElement("span");
+        v.textContent = value || "—";  // textContent-veilig: geen HTML-injectie
+        grid.appendChild(l);
+        grid.appendChild(v);
+      }
+      details.replaceChildren(grid);
       card.classList.remove("hidden");
     }
 
@@ -244,6 +258,10 @@
     function stopTimer() {
       clearInterval(timerInterval);
     }
+
+    // Expose to global scope for onclick handlers
+    window.startCall = startCall;
+    window.endCall = endCall;
   </script>
 
 </body>
