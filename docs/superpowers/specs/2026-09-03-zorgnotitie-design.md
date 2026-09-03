@@ -6,21 +6,25 @@
 
 ## Problem
 
-Dutch home care (wijkverpleging) staffing is at its worst point since CBS started
-tracking it: 68,500 open vacancies at the end of Q2 2026, the highest since 2011,
-projected to grow to a 301,000-worker shortfall by 2035 (worst in elderly care).
-NZa (Nederlandse Zorgautoriteit) names unnecessary administrative burden as one
-driver of staff leaving the sector — specifically citing manual "vijfminutenregistratie"
-(five-minute-increment care logging) as an example, even though that model was
-formally scrapped nationally in 2019 in favor of "Zorgplan = Planning = Realisatie,
-tenzij" (ZPRT): care is pre-planned, and staff only need to document when reality
-deviates from the plan. In practice, organizations vary in how much friction this
-still causes — older systems, habits, and unclear deviation-reporting workflows
-mean documentation still eats time care workers would rather spend with clients.
+The Dutch care sector remains under severe labour-market pressure. CBS recorded
+68,500 open vacancies in healthcare at the end of Q2 2026, the highest since
+2011, with the sector's own projections pointing toward continued growth in
+the shortage over the next decade (worst in elderly care). Administrative
+burden remains a recognised pressure point — NZa (Nederlandse Zorgautoriteit)
+has pointed to manual "vijfminutenregistratie" (five-minute-increment care
+logging) as an example, even though that model was formally scrapped
+nationally in 2019 in favor of "Zorgplan = Planning = Realisatie, tenzij"
+(ZPRT): care is pre-planned, and staff only need to document when reality
+deviates from the plan. In practice, organisations vary in how smoothly ZPRT
+is actually implemented — older systems, habits, and unclear
+deviation-reporting workflows mean documentation still eats time care workers
+would rather spend with clients.
 
-The 2026 government budget (€53M rising to €185M by 2029) explicitly targets
-"meer inzet van ICT" to reduce this administrative burden — so there is real
-institutional appetite behind solving a narrow piece of it.
+National policy increasingly emphasises smarter work, digitalisation, and
+labour-saving innovation in care as part of addressing this pressure.
+ZorgNotitie addresses one deliberately narrow operational workflow within
+that broader direction — it does not claim to solve the shortage, or to speak
+for how any specific organisation currently documents care.
 
 ## Non-goals (explicit scope boundary)
 
