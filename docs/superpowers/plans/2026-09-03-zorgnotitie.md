@@ -1246,7 +1246,9 @@ export async function uploadRecording(zorgmomentId: string, audioBlob: Blob) {
   });
   const body = await res.json();
   if (!res.ok) {
-    throw new Error(body.detail?.message || "Transcriptie mislukt. Probeer het opnieuw.");
+    // The backend returns the error body flat (JSONResponse, not
+    // HTTPException's detail-wrapped shape) — read body.message directly.
+    throw new Error(body.message || "Transcriptie mislukt. Probeer het opnieuw.");
   }
   return body;
 }
@@ -1612,10 +1614,20 @@ Expected: FAIL with `AttributeError` (no `/extract` route yet) or 404.
 
 Add these imports at the top of the file:
 ```python
+from fastapi.responses import JSONResponse
 from app.extraction import extract, ExtractionError
 ```
 
-Append this route to the file:
+Append this route to the file. Note: the failure path returns a `JSONResponse`
+directly rather than `raise HTTPException(detail={...})` — FastAPI's default
+exception handler wraps whatever you pass to `detail` under a top-level
+`"detail"` key in the response body, so `raise HTTPException(status_code=422,
+detail={"review_status": "failed", ...})` would produce a body of
+`{"detail": {"review_status": "failed", ...}}`, not `{"review_status":
+"failed", ...}` at the top level — breaking the test below, which asserts
+`response.json()["review_status"]` directly. This exact mistake was already
+made and fixed once in Task 3.2's STT-failure path; fixed here proactively
+before dispatch rather than repeating it:
 ```python
 @router.post("/zorgmomenten/{zorgmoment_id}/extract")
 def extract_zorgmoment(zorgmoment_id: str):
@@ -1634,7 +1646,7 @@ def extract_zorgmoment(zorgmoment_id: str):
         client.table("zorgmomenten").update({
             "review_status": "failed",
         }).eq("id", zorgmoment_id).execute()
-        raise HTTPException(status_code=422, detail={
+        return JSONResponse(status_code=422, content={
             "review_status": "failed",
             "message": "Kon geen gestructureerd concept maken. Probeer het opnieuw.",
         })
@@ -1883,7 +1895,8 @@ export interface ExtractionDraft {
 export async function extractZorgmoment(zorgmomentId: string): Promise<{ extraction_json: ExtractionDraft }> {
   const res = await fetch(`${API_URL}/zorgmomenten/${zorgmomentId}/extract`, { method: "POST" });
   const body = await res.json();
-  if (!res.ok) throw new Error(body.detail?.message || "Extractie mislukt.");
+  // Flat JSONResponse body, same reasoning as uploadRecording above.
+  if (!res.ok) throw new Error(body.message || "Extractie mislukt.");
   return body;
 }
 
