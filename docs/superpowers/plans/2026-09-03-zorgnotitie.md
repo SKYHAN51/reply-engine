@@ -629,14 +629,37 @@ import pytest
 
 
 class FakeTable:
+    """Minimal stand-in matching real supabase-py chaining:
+    .insert(row).execute() appends a new row;
+    .update(fields).eq(field, value).execute() mutates matching rows in
+    place — this distinction matters because production code must use
+    .update() to modify an existing zorgmoment, never .insert() with an
+    existing id."""
     def __init__(self, store: dict, name: str):
         self._store = store.setdefault(name, [])
+        self._pending_update: dict | None = None
+        self._filter: tuple | None = None
 
     def insert(self, row: dict):
         self._store.append(row)
         return self
 
+    def update(self, fields: dict):
+        self._pending_update = fields
+        return self
+
+    def eq(self, field: str, value):
+        self._filter = (field, value)
+        return self
+
     def execute(self):
+        if self._pending_update is not None and self._filter is not None:
+            field, value = self._filter
+            matched = [r for r in self._store if r.get(field) == value]
+            for row in matched:
+                row.update(self._pending_update)
+            self._pending_update, self._filter = None, None
+            return type("Result", (), {"data": matched})()
         return type("Result", (), {"data": list(self._store)})()
 
 
@@ -972,9 +995,9 @@ async def record_audio(zorgmoment_id: str, audio: UploadFile = File(...)):
     except TranscriptionError as exc:
         log_event(client, zorgmoment_id, "stt", "failed", error_code="stt_failed",
                    error_message_safe=str(exc))
-        client.table("zorgmomenten").insert({
-            "id": zorgmoment_id, "audio_status": "failed",
-        }).execute()
+        client.table("zorgmomenten").update({
+            "audio_status": "failed",
+        }).eq("id", zorgmoment_id).execute()
         raise HTTPException(status_code=422, detail={
             "audio_status": "failed",
             "message": "Transcriptie mislukt. Probeer het opnieuw.",
@@ -985,9 +1008,9 @@ async def record_audio(zorgmoment_id: str, audio: UploadFile = File(...)):
         del audio_bytes
 
     log_event(client, zorgmoment_id, "stt", "succeeded")
-    client.table("zorgmomenten").insert({
-        "id": zorgmoment_id, "audio_status": "transcribed", "transcript": transcript,
-    }).execute()
+    client.table("zorgmomenten").update({
+        "audio_status": "transcribed", "transcript": transcript,
+    }).eq("id", zorgmoment_id).execute()
     return {"id": zorgmoment_id, "audio_status": "transcribed", "transcript": transcript}
 ```
 
@@ -1015,15 +1038,6 @@ app.include_router(zorgmomenten_router)
 def health():
     return {"status": "healthy", "service": "zorgnotitie"}
 ```
-
-Note: the `test_routes_record.py` tests above use `fake_supabase.table(...).insert(...).execute()`
-which appends rather than upserts — this is sufficient for these unit tests
-(they only check the shape of the response), but the real Supabase client's
-`.insert()` on an existing `id` will fail on the primary key constraint. This
-is intentionally deferred: Task 5.1 replaces these raw `.insert()` calls with
-proper `.update()` calls using real Supabase syntax once the full write path
-is built end-to-end. Flag this explicitly in the Task 5.1 write-up so it
-isn't missed.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -1583,9 +1597,9 @@ def extract_zorgmoment(zorgmoment_id: str):
     except ExtractionError as exc:
         log_event(client, zorgmoment_id, "extraction", "failed",
                    error_code="extraction_failed", error_message_safe=str(exc))
-        client.table("zorgmomenten").insert({
-            "id": zorgmoment_id, "review_status": "failed",
-        }).execute()
+        client.table("zorgmomenten").update({
+            "review_status": "failed",
+        }).eq("id", zorgmoment_id).execute()
         raise HTTPException(status_code=422, detail={
             "review_status": "failed",
             "message": "Kon geen gestructureerd concept maken. Probeer het opnieuw.",
@@ -1593,11 +1607,10 @@ def extract_zorgmoment(zorgmoment_id: str):
 
     log_event(client, zorgmoment_id, "extraction", "succeeded")
     extraction_json = draft.model_dump()
-    client.table("zorgmomenten").insert({
-        "id": zorgmoment_id,
+    client.table("zorgmomenten").update({
         "review_status": "needs_review",
         "extraction_json": extraction_json,
-    }).execute()
+    }).eq("id", zorgmoment_id).execute()
     return {"id": zorgmoment_id, "review_status": "needs_review", "extraction_json": extraction_json}
 ```
 
@@ -1764,12 +1777,10 @@ def save_zorgmoment(zorgmoment_id: str, body: SaveZorgmomentRequest):
 
     # This is the ONLY place final fields are written — always from the
     # human-approved request body, never copied from extraction_json.
-    client.table("zorgmomenten").insert({
-        "id": zorgmoment_id,
+    client.table("zorgmomenten").update({
         "review_status": "reviewed",
-        "reviewed_by": body.reviewed_by,
         **after_json,
-    }).execute()
+    }).eq("id", zorgmoment_id).execute()
 
     client.table("audit_log").insert({
         "zorgmoment_id": zorgmoment_id,
@@ -2467,16 +2478,16 @@ git commit -m "docs: add case study write-up"
   covered across Tasks 2.1-2.3, 3.1-3.2, 4.1-4.3, 6.1. UI scope (3 pages) →
   Tasks 3.3, 4.4, 5.2. Compliance posture → layout banner in Task 3.3 Step 8,
   reiterated in Task 7.3.
-- **Known deferred item:** Task 3.2 flags that its raw `.insert()` calls for
-  updates are a simplification that Task 4.2/4.3 correct to real
-  Supabase `.update()` semantics once wired against a real project — call
-  this out again explicitly to whoever executes Task 3.2/4.2/4.3: replace
-  `client.table("zorgmomenten").insert({"id": zorgmoment_id, ...})` calls
-  with `client.table("zorgmomenten").update({...}).eq("id", zorgmoment_id)`
-  when running against the real Supabase client (the `FakeTable` test double
-  doesn't distinguish insert/update, which is why tests pass either way —
-  this must be fixed before Phase 7 deployment, not left as `.insert()` in
-  production code).
+- **Fixed during self-review:** an earlier draft of this plan had Tasks 3.2,
+  4.2, and 4.3 mutating an existing `zorgmoment` row via `.insert({"id":
+  zorgmoment_id, ...})`, which is wrong against a real Supabase client (it
+  would violate the primary key or create a duplicate, depending on
+  conflict handling) — real updates require `.update({...}).eq("id", ...)`.
+  This is now fixed inline in all three tasks, and `FakeTable` in Task 2.3's
+  `conftest.py` was extended to actually implement `.update().eq()`
+  semantics (mutating matching rows) rather than just accepting the call
+  syntactically — so the existing tests genuinely exercise update-not-insert
+  behavior, not just tolerate either.
 - **Type consistency:** `ExtractionDraft` field names are identical across
   `schemas.py`, `alerts.py`, `extraction.py`, `zorgmomenten.py` (save
   endpoint), and the frontend `ExtractionDraft` TypeScript interface —
