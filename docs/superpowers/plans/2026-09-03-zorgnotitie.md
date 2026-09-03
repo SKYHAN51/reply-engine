@@ -883,7 +883,7 @@ git commit -m "feat: Whisper STT wrapper with explicit failure handling"
 
 **Interfaces:**
 - Consumes: `app.stt.transcribe`/`TranscriptionError` (Task 3.1), `app.db.get_client` (Task 2.3), `app.events.log_event` (Task 2.3)
-- Produces: `POST /zorgmomenten/{id}/record` — accepts a demo_client_id (path uses a pre-created zorgmoment id created by a separate `POST /zorgmomenten` call). Task 4.x (extraction endpoint) is called next in the same flow, from the frontend, as a separate step — this task does NOT call extraction; it only gets the transcript persisted and `audio_status` updated.
+- Produces: `POST /zorgmomenten/{id}/record` — accepts a demo_client_id (path uses a pre-created zorgmoment id created by a separate `POST /zorgmomenten` call). Task 4.x (extraction endpoint) is called next in the same flow, from the frontend, as a separate step — this task does NOT call extraction; it only gets the transcript persisted and `audio_status` updated. Also produces `GET /demo-clients`, returning the seeded rows from Task 1.2 verbatim (`id, display_name, care_plan_summary`) — Task 3.3's frontend fetches real client ids from this endpoint instead of hardcoding any. This is added here (rather than a later dashboard task) because Task 3.3, the very next task, cannot create a valid `zorgmoment` without real `demo_clients.id` values — a hardcoded placeholder would violate the foreign key constraint from Task 1.1's migration against the real database, even though it would pass unnoticed against the FakeTable test double, which does not enforce foreign keys.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -945,6 +945,22 @@ def test_record_endpoint_surfaces_stt_failure(fake_supabase):
         )
     assert response.status_code == 422
     assert response.json()["audio_status"] == "failed"
+
+
+def test_list_demo_clients_returns_seeded_rows(fake_supabase):
+    fake_supabase.table("demo_clients").insert({
+        "id": "client-1", "display_name": "Mevrouw De Vries",
+        "care_plan_summary": "Ochtendzorg.",
+    }).execute()
+    fake_supabase.table("demo_clients").insert({
+        "id": "client-2", "display_name": "Meneer Bakker",
+        "care_plan_summary": "Avondzorg.",
+    }).execute()
+    with patch("app.routes.zorgmomenten.get_client", return_value=fake_supabase):
+        response = client.get("/demo-clients")
+    assert response.status_code == 200
+    names = [c["display_name"] for c in response.json()]
+    assert names == ["Mevrouw De Vries", "Meneer Bakker"]
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -1012,6 +1028,12 @@ async def record_audio(zorgmoment_id: str, audio: UploadFile = File(...)):
         "audio_status": "transcribed", "transcript": transcript,
     }).eq("id", zorgmoment_id).execute()
     return {"id": zorgmoment_id, "audio_status": "transcribed", "transcript": transcript}
+
+
+@router.get("/demo-clients")
+def list_demo_clients():
+    client = get_client()
+    return client.table("demo_clients").execute().data
 ```
 
 - [ ] **Step 4: Write `backend/app/main.py`**
@@ -1042,7 +1064,7 @@ def health():
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `.venv/Scripts/pytest tests/test_routes_record.py -v`
-Expected: 3 passed.
+Expected: 4 passed.
 
 - [ ] **Step 6: Commit**
 
@@ -1199,6 +1221,12 @@ export interface DemoClient {
   care_plan_summary: string;
 }
 
+export async function listDemoClients(): Promise<DemoClient[]> {
+  const res = await fetch(`${API_URL}/demo-clients`);
+  if (!res.ok) throw new Error("Kon cliëntenlijst niet laden.");
+  return res.json();
+}
+
 export async function createZorgmoment(demoClientId: string, plannedCareSummary: string) {
   const res = await fetch(`${API_URL}/zorgmomenten`, {
     method: "POST",
@@ -1229,29 +1257,31 @@ export async function uploadRecording(zorgmomentId: string, audioBlob: Blob) {
 ```tsx
 "use client";
 
-import { useState, useRef } from "react";
-import { createZorgmoment, uploadRecording } from "@/lib/api";
-
-const DEMO_CLIENTS = [
-  { id: "client-1", display_name: "Mevrouw De Vries", care_plan_summary: "Ochtendzorg: hulp bij wassen en aankleden, medicatieherinnering en ontbijtvoorbereiding." },
-  { id: "client-2", display_name: "Meneer Bakker", care_plan_summary: "Avondzorg: hulp bij aankleden voor de nacht, medicatie toedienen, controle bloeddruk." },
-  { id: "client-3", display_name: "Mevrouw Jansen", care_plan_summary: "Middagzorg: wondverzorging been, hulp bij lopen naar woonkamer, korte wandeling indien mogelijk." },
-];
-// Note: replace this hardcoded list with a GET /demo-clients call once
-// Task 5.2's dashboard endpoints exist — tracked as a follow-up, not
-// blocking this page's core recording flow.
+import { useState, useRef, useEffect } from "react";
+import { createZorgmoment, uploadRecording, listDemoClients, DemoClient } from "@/lib/api";
 
 type Status = "idle" | "recording" | "uploading" | "transcribed" | "error";
 
 export default function OpnemenPage() {
-  const [selectedClient, setSelectedClient] = useState(DEMO_CLIENTS[0]);
+  const [clients, setClients] = useState<DemoClient[]>([]);
+  const [selectedClient, setSelectedClient] = useState<DemoClient | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [zorgmomentId, setZorgmomentId] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
+  useEffect(() => {
+    listDemoClients()
+      .then((data) => {
+        setClients(data);
+        setSelectedClient(data[0] ?? null);
+      })
+      .catch((err) => setErrorMessage(err instanceof Error ? err.message : "Onbekende fout."));
+  }, []);
+
   async function startRecording() {
+    if (!selectedClient) return;
     setErrorMessage("");
     const zm = await createZorgmoment(selectedClient.id, selectedClient.care_plan_summary);
     setZorgmomentId(zm.id);
@@ -1283,6 +1313,10 @@ export default function OpnemenPage() {
     };
   }
 
+  if (!selectedClient) {
+    return <main className="max-w-xl mx-auto p-6">{errorMessage || "Cliënten laden…"}</main>;
+  }
+
   return (
     <main className="max-w-xl mx-auto p-6">
       <h1 className="text-2xl font-semibold mb-4">Opnemen</h1>
@@ -1291,10 +1325,10 @@ export default function OpnemenPage() {
       <select
         className="border rounded p-2 w-full mb-4"
         value={selectedClient.id}
-        onChange={(e) => setSelectedClient(DEMO_CLIENTS.find((c) => c.id === e.target.value)!)}
+        onChange={(e) => setSelectedClient(clients.find((c) => c.id === e.target.value) ?? null)}
         disabled={status === "recording" || status === "uploading"}
       >
-        {DEMO_CLIENTS.map((c) => (
+        {clients.map((c) => (
           <option key={c.id} value={c.id}>{c.display_name}</option>
         ))}
       </select>
