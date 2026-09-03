@@ -1106,7 +1106,7 @@ step replaces the test-run steps.
     "start": "next start"
   },
   "dependencies": {
-    "next": "15.5.4",
+    "next": "15.5.25",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
