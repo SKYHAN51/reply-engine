@@ -311,3 +311,19 @@ GitHub → Vercel entegrasyonu; GitHub Actions'ta `lint` + `tsc` + `build` + Pla
 | `public/` | 61,1 MB / 42 görsel; ~35 MB referanssız + ~20 MB sahte vaka görseli |
 | reply-engine `pytest` | ✔ 22/22 |
 | Canlı site | Test edilemedi (ağ politikası: `skyhan.app:443 → 403`) |
+
+---
+
+## 11. Güncelleme — 24 Eylül 2026
+
+48 saatlik liste `SKYHAN51/skyhan-app` reposunda `claude/skyhan-app-review-s2j1o6` dalına uygulandı (birleştirilmedi, deploy edilmedi):
+
+- K1 + Ö4: Chat istemi `PROJECTS`/`PROFILE`'dan üretiliyor; SCHARP/STAHL/LUMEN (eski, kullanılmayan konsept vakalar) istemden, `public/work/`'ten ve üretim script'lerinden kaldırıldı. OpenAI istemcisi artık istek başına oluşturuluyor; `next build` anahtarsız da geçiyor.
+- K2: Rate-limit anahtarları rotaya göre ayrıldı; form hatası kalıcı ve WhatsApp linkli.
+- K3: Sayfa başına canonical + OpenGraph.
+- K4: Yerel imleç yalnızca özel imleç yüklüyken gizleniyor.
+- K5: Kaynaksız/savunulamaz iddialar kaldırıldı; demolar "LIVE DEMO" etiketli. SMR Zorgpad metni sahibin girdisini bekliyor.
+- K6: KvK/btw eklenmedi — işletme henüz kayıtlı değil. Ücretli iş/fatura başladığında KvK kaydı ve footer'a numara eklenmesi gündeme gelir.
+- Ö9: Lint yeniden geçiyor; 10 ölü dosya, 3 kullanılmayan bağımlılık ve ~35 MB kullanılmayan görsel silindi.
+
+Doğrulama: `npm run lint` ✔, `next build` (OPENAI_API_KEY olmadan) ✔, derlenmiş HTML'de sayfa başına canonical ✔, 6 chat mesajı sonrası form artık 429 almıyor ✔, reduced-motion'da `cursor: auto` ✔, form hatası 4,5 sn sonra hâlâ görünür ✔.
