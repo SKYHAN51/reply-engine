@@ -79,6 +79,9 @@ async def check_availability_endpoint(request: Request, body: CheckAvailabilityR
 @limiter.limit("10/minute")
 async def book_appointment_endpoint(request: Request, body: BookAppointmentRequest) -> BookAppointmentResponse:
     result = book_appointment(body)
+    if not result.bevestigd:
+        # slot was al bezet: geen bevestigings-SMS voor een afspraak die niet bestaat
+        return result
     if _sms_budget_ok():
         try:
             await send_sms_confirmation(body.naam, body.telefoon, body.datum, body.tijdstip)

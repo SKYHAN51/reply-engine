@@ -71,7 +71,7 @@ assistant = {
                 "type": "function",
                 "function": {
                     "name": "book_appointment",
-                    "description": "Boek een afspraak na bevestiging van naam, telefoonnummer, datum, tijdstip en probleem",
+                    "description": "Boek een afspraak na bevestiging van naam, Nederlands mobiel telefoonnummer (06…), datum, tijdstip en probleem. Check eerst de beschikbaarheid. bevestigd=false betekent dat het tijdslot net bezet is: bied dan een alternatief aan.",
                     "parameters": {
                         "type": "object",
                         "properties": {

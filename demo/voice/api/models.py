@@ -2,8 +2,11 @@ import re
 
 from pydantic import BaseModel, field_validator
 
-# E.164: optioneel '+', geen leidende 0, 8-15 cijfers totaal.
-_PHONE_RE = re.compile(r"^\+?[1-9]\d{7,14}$")
+# Alleen Nederlandse mobiele nummers (06…, +316…, 00316…): de bevestiging
+# gaat per SMS, en het oude open E.164-patroon liet de publieke demo SMS'en
+# naar willekeurige (dure) buitenlandse nummers — SMS-pumping. Het weigerde
+# bovendien juist het gewone Nederlandse formaat 06…, want dat begint met 0.
+_NL_MOBILE_RE = re.compile(r"^(?:\+31|0031|0)6(\d{8})$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$")
 
@@ -82,9 +85,10 @@ class BookAppointmentRequest(BaseModel):
     @classmethod
     def _v_telefoon(cls, v: str) -> str:
         v = v.strip().replace(" ", "").replace("-", "")
-        if not _PHONE_RE.match(v):
-            raise ValueError("telefoon moet een geldig telefoonnummer zijn")
-        return v
+        match = _NL_MOBILE_RE.match(v)
+        if not match:
+            raise ValueError("telefoon moet een Nederlands mobiel nummer zijn (06…)")
+        return "+316" + match.group(1)
 
     @field_validator("datum")
     @classmethod
@@ -105,4 +109,5 @@ class BookAppointmentRequest(BaseModel):
 
 class BookAppointmentResponse(BaseModel):
     bevestigd: bool
-    afspraak_id: str
+    # None wanneer het tijdslot niet (meer) vrij was
+    afspraak_id: str | None = None
