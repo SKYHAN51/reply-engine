@@ -17,14 +17,14 @@ load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from models import PipelineState, ProcessRequest, UploadResponse
 from orchestrator import pipeline
-from vectorstore import get_vectorstore
+from vectorstore import collection_exists, delete_expired_uploads, get_vectorstore
 
 logger = logging.getLogger("reply-engine")
 
@@ -36,6 +36,14 @@ _UPLOAD_TOKEN_SECRET = os.environ.get("UPLOAD_TOKEN_SECRET") or secrets.token_he
 # Globaal plafond op dure LLM-verwerking (kostenbescherming tegen IP-rotatie).
 _PROCESS_MAX_PER_HOUR = int(os.environ.get("PROCESS_MAX_PER_HOUR", "150"))
 _process_times: deque[float] = deque()
+
+_MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+# multipart framing on top of the file itself
+_MAX_UPLOAD_REQUEST_BYTES = _MAX_UPLOAD_BYTES + 256 * 1024
+_UPLOAD_TTL_SECONDS = 3600
+_MAX_QUESTIONS_PER_UPLOAD = 5
+_question_counts: dict[str, int] = {}
+_last_cleanup = 0.0
 
 _ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
     "ALLOWED_ORIGINS",
@@ -57,10 +65,50 @@ def _process_budget_ok() -> bool:
     return True
 
 
-limiter = Limiter(key_func=get_remote_address)
+def _client_ip(request: Request) -> str:
+    # Behind Render's proxy request.client.host is the proxy for every
+    # visitor, which put everyone in one shared rate-limit bucket. Use the
+    # entry the proxy appended (rightmost X-Forwarded-For); the ones to its
+    # left are whatever the client sent.
+    forwarded = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    return forwarded[-1] if forwarded else get_remote_address(request)
+
+
+def _cleanup_expired_uploads() -> None:
+    """Deletes uploads older than the TTL, at most every 5 minutes."""
+    global _last_cleanup
+    now = time.time()
+    if now - _last_cleanup < 300:
+        return
+    _last_cleanup = now
+    try:
+        for name in delete_expired_uploads(_UPLOAD_TTL_SECONDS):
+            _question_counts.pop(name, None)
+    except Exception:
+        logger.exception("Opschonen van uploads mislukt")
+
+
+limiter = Limiter(key_func=_client_ip)
 app = FastAPI(title="Reply Engine API", version="1.0.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# Registered before CORS so CORS stays the outermost layer and these early
+# rejections still carry CORS headers. Starlette has already buffered the
+# whole multipart body by the time the /upload handler runs, so the size
+# check has to happen here, on the declared length, before any of it is read.
+@app.middleware("http")
+async def _limit_upload_size(request: Request, call_next):
+    if request.method == "POST" and request.url.path == "/upload":
+        length = request.headers.get("content-length")
+        if length is None:
+            return JSONResponse({"detail": "Content-Length vereist."}, status_code=411)
+        if not length.isdigit() or int(length) > _MAX_UPLOAD_REQUEST_BYTES:
+            return JSONResponse({"detail": "Bestand te groot. Maximaal 2MB."}, status_code=413)
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
@@ -139,12 +187,22 @@ async def _stream_pipeline(message: str, collection_name: str) -> AsyncGenerator
 @limiter.limit("10/minute")
 async def process_message(request: Request, body: ProcessRequest):
     collection = body.collection_name
+    _cleanup_expired_uploads()
     if collection == DEFAULT_COLLECTION:
         pass
     elif _COLLECTION_RE.match(collection):
         expected = _sign_collection(collection)
         if not body.collection_token or not hmac.compare_digest(body.collection_token, expected):
             raise HTTPException(status_code=403, detail="Geen toegang tot dit document.")
+        # Without this, querying an expired (deleted) upload would silently
+        # recreate it as an empty collection.
+        if not collection_exists(collection):
+            raise HTTPException(status_code=410, detail="Document verlopen. Upload het opnieuw.")
+        # The page promised 5 questions per upload; this was only enforced in the browser.
+        used = _question_counts.get(collection, 0)
+        if used >= _MAX_QUESTIONS_PER_UPLOAD:
+            raise HTTPException(status_code=429, detail="Maximum van 5 vragen per upload bereikt.")
+        _question_counts[collection] = used + 1
     else:
         raise HTTPException(status_code=400, detail="Ongeldige collectie.")
 
@@ -164,8 +222,9 @@ async def upload_document(request: Request, file: UploadFile = File(...)):
     filename = file.filename or ""
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Alleen PDF bestanden worden ondersteund.")
-    content = await file.read()
-    if len(content) > 2 * 1024 * 1024:
+    _cleanup_expired_uploads()
+    content = await file.read(_MAX_UPLOAD_BYTES + 1)
+    if len(content) > _MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=400, detail="Bestand te groot. Maximaal 2MB.")
     if content[:5] != b"%PDF-":
         raise HTTPException(status_code=400, detail="Bestand is geen geldige PDF.")

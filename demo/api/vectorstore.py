@@ -33,3 +33,32 @@ def delete_collection(collection_name: str) -> None:
         client.delete_collection(collection_name)
     except Exception:
         pass
+
+
+def delete_expired_uploads(max_age_seconds: int) -> list[str]:
+    """Delete upload_* collections whose first chunk is older than max_age_seconds.
+
+    Returns the names that were deleted. Same rule as tools/cleanup_uploads.py,
+    but callable from the API itself so the "deleted after 1 hour" promise
+    holds without an external cron job.
+    """
+    import time
+
+    client = chromadb.PersistentClient(path=str(CHROMA_PATH))
+    deleted: list[str] = []
+    now = time.time()
+    for entry in client.list_collections():
+        # chromadb versions differ: Collection objects or plain names
+        name = getattr(entry, "name", entry)
+        if not isinstance(name, str) or not name.startswith("upload_"):
+            continue
+        try:
+            metadatas = client.get_collection(name).peek(limit=1).get("metadatas") or []
+            uploaded_at = (metadatas[0] or {}).get("uploaded_at", 0) if metadatas else 0
+            # no timestamp (empty or foreign collection) counts as expired
+            if now - float(uploaded_at) > max_age_seconds:
+                client.delete_collection(name)
+                deleted.append(name)
+        except Exception:
+            continue
+    return deleted
