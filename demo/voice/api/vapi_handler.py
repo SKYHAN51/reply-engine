@@ -61,20 +61,38 @@ def check_availability(request: CheckAvailabilityRequest) -> CheckAvailabilityRe
 def book_appointment(request: BookAppointmentRequest) -> BookAppointmentResponse:
     tijdslot_full = request.tijdstip if len(request.tijdstip) == 8 else f"{request.tijdstip}:00"
 
-    result = (
-        supabase.table("appointments")
-        .insert({
-            "naam": request.naam,
-            "telefoon": request.telefoon,
-            "datum": request.datum,
-            "tijdstip": tijdslot_full,
-            "probleem": request.probleem,
-            "status": "gepland",
-        })
+    # Claim het tijdslot eerst, voorwaardelijk: alleen een rij die nog vrij is
+    # wordt bijgewerkt, dus twee bellers kunnen niet hetzelfde slot krijgen.
+    # Voorheen werd eerst ingeboekt en daarna pas het slot gesloten, zonder
+    # controle: dubbele boekingen, elk met een bevestigings-SMS, en boekingen
+    # op tijden die helemaal niet in de agenda stonden.
+    claimed = (
+        supabase.table("availability")
+        .update({"beschikbaar": False})
+        .eq("dag", request.datum)
+        .eq("tijdslot", tijdslot_full)
+        .eq("beschikbaar", True)
         .execute()
     )
-    afspraak_id = result.data[0]["id"]
+    if not claimed.data:
+        return BookAppointmentResponse(bevestigd=False)
 
-    supabase.table("availability").update({"beschikbaar": False}).eq("dag", request.datum).eq("tijdslot", tijdslot_full).execute()
+    try:
+        result = (
+            supabase.table("appointments")
+            .insert({
+                "naam": request.naam,
+                "telefoon": request.telefoon,
+                "datum": request.datum,
+                "tijdstip": tijdslot_full,
+                "probleem": request.probleem,
+                "status": "gepland",
+            })
+            .execute()
+        )
+    except Exception:
+        # geef het slot weer vrij, anders blijft het onboekbaar
+        supabase.table("availability").update({"beschikbaar": True}).eq("dag", request.datum).eq("tijdslot", tijdslot_full).execute()
+        raise
 
-    return BookAppointmentResponse(bevestigd=True, afspraak_id=afspraak_id)
+    return BookAppointmentResponse(bevestigd=True, afspraak_id=result.data[0]["id"])
